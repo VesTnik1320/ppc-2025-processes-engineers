@@ -19,8 +19,10 @@ class ZhurinIMatrixSumsPerfTests : public ppc::util::BaseRunPerfTests<InType, Ou
   OutType expected_data_{0.0};
 
   void SetUp() override {
-    std::string input_data_source = ppc::util::GetAbsoluteTaskPath(PPC_ID_zhurin_i_matrix_sums, "cases/perf.txt");
-    std::string expected_data_source = ppc::util::GetAbsoluteTaskPath(PPC_ID_zhurin_i_matrix_sums, "expected/perf.txt");
+    // ИСПРАВЛЕННЫЕ ПУТИ - используем папку perf/
+    std::string input_data_source = ppc::util::GetAbsoluteTaskPath(PPC_ID_zhurin_i_matrix_sums, "perf/input.txt");
+    std::string expected_data_source = ppc::util::GetAbsoluteTaskPath(PPC_ID_zhurin_i_matrix_sums, "perf/expected.txt");
+    
     std::ifstream file(input_data_source);
     uint32_t rows = 0;
     uint32_t columns = 0;
@@ -43,7 +45,11 @@ class ZhurinIMatrixSumsPerfTests : public ppc::util::BaseRunPerfTests<InType, Ou
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return std::abs(output_data - expected_data_) < kEpsilon;
+    if (expected_data_ == 0.0) {
+      return output_data == 0.0;
+    }
+    double relative_error = std::abs(output_data - expected_data_) / std::abs(expected_data_);
+    return relative_error < 1e-10; 
   }
 
   [[nodiscard]] InType GetTestInputData() final {
