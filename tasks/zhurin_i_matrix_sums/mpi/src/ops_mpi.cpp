@@ -60,8 +60,8 @@ bool ZhurinIMatrixSumsMPI::RunImpl() {
 
   std::vector<double> local_buff(counts[rank], 0);
 
-  MPI_Scatterv(matrix.data(), counts.data(), displs.data(), MPI_DOUBLE, local_buff.data(), counts[rank], MPI_DOUBLE, 0,
-               MPI_COMM_WORLD);
+  MPI_Scatterv(matrix.data(), counts.data(), displs.data(), MPI_DOUBLE, 
+               local_buff.data(), counts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
   double local_sum = 0.0;
   for (int i = 0; i < counts[rank]; i++) {
@@ -69,12 +69,9 @@ bool ZhurinIMatrixSumsMPI::RunImpl() {
   }
 
   double global_sum = 0.0;
+  MPI_Allreduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  MPI_Reduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-
-  if (rank == 0) {
-    GetOutput() = global_sum;
-  }
+  GetOutput() = global_sum;
 
   return true;
 }
