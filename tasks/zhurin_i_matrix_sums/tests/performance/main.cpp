@@ -19,26 +19,32 @@ class ZhurinIMatrixSumsPerfTests : public ppc::util::BaseRunPerfTests<InType, Ou
   OutType expected_data_{0.0};
 
   void SetUp() override {
-    // ИСПРАВЛЕННЫЕ ПУТИ - используем папку perf/
     std::string input_data_source = ppc::util::GetAbsoluteTaskPath(PPC_ID_zhurin_i_matrix_sums, "perf/input.txt");
     std::string expected_data_source = ppc::util::GetAbsoluteTaskPath(PPC_ID_zhurin_i_matrix_sums, "perf/expected.txt");
 
     std::ifstream file(input_data_source);
+    if (!file.is_open()) {
+      return;
+    }
+
     uint32_t rows = 0;
     uint32_t columns = 0;
     std::vector<double> inp;
     file >> rows;
     file >> columns;
+
     double num = 0.0;
     while (file >> num) {
       inp.push_back(num);
     }
     file.close();
 
-    file = std::ifstream(expected_data_source);
     double expected_value = 0.0;
-    file >> expected_value;
-    file.close();
+    std::ifstream expected_file(expected_data_source);
+    if (expected_file.is_open()) {
+      expected_file >> expected_value;
+      expected_file.close();
+    }
 
     input_data_ = InType(rows, columns, inp);
     expected_data_ = expected_value;
