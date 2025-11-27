@@ -30,17 +30,16 @@ class ZhurinIMatrixSumsPerfTests : public ppc::util::BaseRunPerfTests<InType, Ou
 
     input_data_ = InType(rows, columns, inp);
     expected_data_ = expected_value;
-
   }
 
- bool CheckTestOutputData(OutType &output_data) final {
-  if (expected_data_ == 0.0) {
-    return output_data == 0.0;
+  bool CheckTestOutputData(OutType &output_data) final {
+    if (expected_data_ == 0.0) {
+      return output_data == 0.0;
+    }
+    double relative_error = std::abs(output_data - expected_data_) / std::abs(expected_data_);
+
+    return relative_error < 1e-10;
   }
-  double relative_error = std::abs(output_data - expected_data_) / std::abs(expected_data_);
-  
-  return relative_error < 1e-10;
-}
 
   [[nodiscard]] InType GetTestInputData() final {
     return input_data_;
