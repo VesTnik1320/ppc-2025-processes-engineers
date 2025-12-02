@@ -1,8 +1,0 @@
-echo "5000 5000" > perf.txt
-for i in {1..5000}; do
-  for j in {1..5000}; do
-    value=$(( (i-1)*5000 + j ))
-    echo -n "$value " >> perf.txt
-  done
-  echo "" >> perf.txt
-done
