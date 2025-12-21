@@ -3,7 +3,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <fstream>
 #include <string>
 #include <tuple>
@@ -34,12 +33,13 @@ class ZhurinIRingTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, 
 
     // Чтение входных данных
     std::ifstream file(input_data_source);
-    int source = 0, dest = 0;
+    int source = 0;
+    int dest = 0;
     std::vector<int> data;
 
     if (file.is_open()) {
       file >> source >> dest;
-      int value;
+      int value = 0;
       while (file >> value) {
         data.push_back(value);
       }
@@ -58,7 +58,9 @@ class ZhurinIRingTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, 
       file.close();
     }
 
-    input_data_ = {source, dest, data};
+    input_data_.source = source;
+    input_data_.dest = dest;
+    input_data_.data = data;
     expected_data_ = expected_data;
   }
 

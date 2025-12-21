@@ -24,16 +24,14 @@ bool IsInRingPath(int rank, int source, int dest, bool go_clockwise, int world_s
   if (go_clockwise) {
     if (source < dest) {
       return rank > source && rank <= dest;
-    } else {
-      return rank > source || rank <= dest;
     }
-  } else {
-    if (source > dest) {
-      return rank < source && rank >= dest;
-    } else {
-      return rank < source || rank >= dest;
-    }
+    return rank > source || rank <= dest;
   }
+
+  if (source > dest) {
+    return rank < source && rank >= dest;
+  }
+  return rank < source || rank >= dest;
 }
 
 void SendDataSizeAndData(int dest_rank, uint64_t data_size, const std::vector<int> &data, int size_tag = 0,

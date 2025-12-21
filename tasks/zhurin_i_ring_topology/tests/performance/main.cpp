@@ -1,8 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cmath>
-#include <cstdint>
+#include <cstddef>
 #include <random>
 #include <vector>
 
