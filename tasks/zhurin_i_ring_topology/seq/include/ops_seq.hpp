@@ -1,8 +1,8 @@
 #ifndef ZHURIN_I_RING_TOPOLOGY_SEQ_INCLUDE_OPS_SEQ_HPP_
 #define ZHURIN_I_RING_TOPOLOGY_SEQ_INCLUDE_OPS_SEQ_HPP_
 
-#include "zhurin_i_ring_topology/common/include/common.hpp"
 #include "task/include/task.hpp"
+#include "zhurin_i_ring_topology/common/include/common.hpp"
 
 namespace zhurin_i_ring_topology {
 

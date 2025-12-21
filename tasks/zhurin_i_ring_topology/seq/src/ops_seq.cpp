@@ -1,8 +1,8 @@
 #include "zhurin_i_ring_topology/seq/include/ops_seq.hpp"
 
-#include <vector>
 #include <chrono>
 #include <thread>
+#include <vector>
 
 #include "zhurin_i_ring_topology/common/include/common.hpp"
 
@@ -30,7 +30,7 @@ bool ZhurinIRingTopologySEQ::RunImpl() {
   if (input.source != input.dest) {
     std::this_thread::sleep_for(std::chrono::microseconds(1));
   }
-  
+
   return true;
 }
 

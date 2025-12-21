@@ -19,9 +19,3 @@ using TestType = std::tuple<int, RingMessage>;
 }  // namespace zhurin_i_ring_topology
 
 #endif  // ZHURIN_I_RING_TOPOLOGY_COMMON_INCLUDE_COMMON_HPP_
-
-
-
-
-
-

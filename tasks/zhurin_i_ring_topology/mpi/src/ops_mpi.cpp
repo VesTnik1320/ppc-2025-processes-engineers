@@ -16,11 +16,11 @@ bool IsInRingPath(int rank, int source, int dest, bool go_clockwise, int world_s
   if (source == dest) {
     return false;
   }
-  
+
   if (rank < 0 || rank >= world_size || source < 0 || source >= world_size || dest < 0 || dest >= world_size) {
     return false;
   }
-  
+
   if (go_clockwise) {
     if (source < dest) {
       return rank > source && rank <= dest;
@@ -36,8 +36,8 @@ bool IsInRingPath(int rank, int source, int dest, bool go_clockwise, int world_s
   }
 }
 
-void SendDataSizeAndData(int dest_rank, uint64_t data_size, const std::vector<int> &data,
-                         int size_tag = 0, int data_tag = 1) {
+void SendDataSizeAndData(int dest_rank, uint64_t data_size, const std::vector<int> &data, int size_tag = 0,
+                         int data_tag = 1) {
   if (dest_rank == MPI_PROC_NULL) {
     return;
   }
@@ -48,8 +48,8 @@ void SendDataSizeAndData(int dest_rank, uint64_t data_size, const std::vector<in
   }
 }
 
-void ReceiveDataSizeAndData(int src_rank, uint64_t &data_size, std::vector<int> &data,
-                            int size_tag = 0, int data_tag = 1) {
+void ReceiveDataSizeAndData(int src_rank, uint64_t &data_size, std::vector<int> &data, int size_tag = 0,
+                            int data_tag = 1) {
   if (src_rank == MPI_PROC_NULL) {
     return;
   }
@@ -79,8 +79,7 @@ void BroadcastResult(int rank, int root, std::vector<int> &output) {
   }
 }
 
-void HandleSameSourceDest(int rank, int source, const std::vector<int> &input_data,
-                          std::vector<int> &output) {
+void HandleSameSourceDest(int rank, int source, const std::vector<int> &input_data, std::vector<int> &output) {
   if (rank == source) {
     output = input_data;
   }

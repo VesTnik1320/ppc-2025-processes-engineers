@@ -29,14 +29,14 @@ class ZhurinIRingTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, 
     int test_id = std::get<0>(param);
     std::string input_data_source =
         ppc::util::GetAbsoluteTaskPath(PPC_ID_zhurin_i_ring_topology, "cases/test" + std::to_string(test_id) + ".txt");
-    std::string expected_data_source =
-        ppc::util::GetAbsoluteTaskPath(PPC_ID_zhurin_i_ring_topology, "expected/test" + std::to_string(test_id) + ".txt");
+    std::string expected_data_source = ppc::util::GetAbsoluteTaskPath(
+        PPC_ID_zhurin_i_ring_topology, "expected/test" + std::to_string(test_id) + ".txt");
 
     // Чтение входных данных
     std::ifstream file(input_data_source);
     int source = 0, dest = 0;
     std::vector<int> data;
-    
+
     if (file.is_open()) {
       file >> source >> dest;
       int value;
@@ -66,7 +66,7 @@ class ZhurinIRingTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, 
     if (output_data.size() != expected_data_.size()) {
       return false;
     }
-    
+
     for (size_t i = 0; i < output_data.size(); ++i) {
       if (output_data[i] != expected_data_[i]) {
         return false;
@@ -90,20 +90,15 @@ TEST_P(ZhurinIRingTopologyFuncTests, RingTopology) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 6> kTestParam = {
-    std::make_tuple(1, RingMessage{}),
-    std::make_tuple(2, RingMessage{}),
-    std::make_tuple(3, RingMessage{}),
-    std::make_tuple(4, RingMessage{}),
-    std::make_tuple(5, RingMessage{}),
-    std::make_tuple(6, RingMessage{})
-};
+const std::array<TestType, 6> kTestParam = {std::make_tuple(1, RingMessage{}), std::make_tuple(2, RingMessage{}),
+                                            std::make_tuple(3, RingMessage{}), std::make_tuple(4, RingMessage{}),
+                                            std::make_tuple(5, RingMessage{}), std::make_tuple(6, RingMessage{})};
 
-const auto kTestTasksList = std::tuple_cat(
-    ppc::util::AddFuncTask<zhurin_i_ring_topology::ZhurinIRingTopologyMPI, InType>(
-        kTestParam, PPC_SETTINGS_zhurin_i_ring_topology),
-    ppc::util::AddFuncTask<zhurin_i_ring_topology::ZhurinIRingTopologySEQ, InType>(
-        kTestParam, PPC_SETTINGS_zhurin_i_ring_topology));
+const auto kTestTasksList =
+    std::tuple_cat(ppc::util::AddFuncTask<zhurin_i_ring_topology::ZhurinIRingTopologyMPI, InType>(
+                       kTestParam, PPC_SETTINGS_zhurin_i_ring_topology),
+                   ppc::util::AddFuncTask<zhurin_i_ring_topology::ZhurinIRingTopologySEQ, InType>(
+                       kTestParam, PPC_SETTINGS_zhurin_i_ring_topology));
 
 inline const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 

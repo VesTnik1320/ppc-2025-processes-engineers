@@ -1,8 +1,8 @@
 #ifndef ZHURIN_I_RING_TOPOLOGY_MPI_INCLUDE_OPS_MPI_HPP_
 #define ZHURIN_I_RING_TOPOLOGY_MPI_INCLUDE_OPS_MPI_HPP_
 
-#include "zhurin_i_ring_topology/common/include/common.hpp"
 #include "task/include/task.hpp"
+#include "zhurin_i_ring_topology/common/include/common.hpp"
 
 namespace zhurin_i_ring_topology {
 
