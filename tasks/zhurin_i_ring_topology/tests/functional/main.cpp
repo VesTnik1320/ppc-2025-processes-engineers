@@ -51,7 +51,7 @@ class ZhurinIRingTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, 
     std::vector<int> expected_data;
     file.open(expected_data_source);
     if (file.is_open()) {
-      int value;
+      int value = 0;
       while (file >> value) {
         expected_data.push_back(value);
       }
