@@ -24,16 +24,14 @@ bool InRing(int rank, int source, int dest, bool go_clockwise, int world_size) {
   if (go_clockwise) {
     if (source < dest) {
       return rank > source && rank <= dest;
-    } else {
-      return rank > source || rank <= dest;
     }
-  } else {
-    if (source > dest) {
-      return rank < source && rank >= dest;
-    } else {
-      return rank < source || rank >= dest;
-    }
+    return rank > source || rank <= dest;
   }
+
+  if (source > dest) {
+    return rank < source && rank >= dest;
+  }
+  return rank < source || rank >= dest;
 }
 
 void SendAllInfo(int dest_rank, uint64_t data_size, const std::vector<int> &data, int size_tag = 0, int data_tag = 1) {
@@ -78,7 +76,7 @@ void BroadcastResult(int rank, int root, std::vector<int> &output) {
 }
 
 void SameSD(int rank, int source, const std::vector<int> &input_data, std::vector<int> &output) {
-  uint64_t data_size = static_cast<uint64_t>(input_data.size());
+  auto data_size = static_cast<uint64_t>(input_data.size());
 
   MPI_Bcast(&data_size, 1, MPI_UINT64_T, source, MPI_COMM_WORLD);
 
