@@ -12,7 +12,7 @@ namespace zhurin_i_ring_topology {
 
 namespace {
 
-bool IsInRingPath(int rank, int source, int dest, bool go_clockwise, int world_size) {
+bool InRing(int rank, int source, int dest, bool go_clockwise, int world_size) {
   if (source == dest) {
     return false;
   }
@@ -24,18 +24,19 @@ bool IsInRingPath(int rank, int source, int dest, bool go_clockwise, int world_s
   if (go_clockwise) {
     if (source < dest) {
       return rank > source && rank <= dest;
+    } else {
+      return rank > source || rank <= dest;
     }
-    return rank > source || rank <= dest;
+  } else {
+    if (source > dest) {
+      return rank < source && rank >= dest;
+    } else {
+      return rank < source || rank >= dest;
+    }
   }
-
-  if (source > dest) {
-    return rank < source && rank >= dest;
-  }
-  return rank < source || rank >= dest;
 }
 
-void SendDataSizeAndData(int dest_rank, uint64_t data_size, const std::vector<int> &data, int size_tag = 0,
-                         int data_tag = 1) {
+void SendAllInfo(int dest_rank, uint64_t data_size, const std::vector<int> &data, int size_tag = 0, int data_tag = 1) {
   if (dest_rank == MPI_PROC_NULL) {
     return;
   }
@@ -46,8 +47,7 @@ void SendDataSizeAndData(int dest_rank, uint64_t data_size, const std::vector<in
   }
 }
 
-void ReceiveDataSizeAndData(int src_rank, uint64_t &data_size, std::vector<int> &data, int size_tag = 0,
-                            int data_tag = 1) {
+void ReceiveAllInfo(int src_rank, uint64_t &data_size, std::vector<int> &data, int size_tag = 0, int data_tag = 1) {
   if (src_rank == MPI_PROC_NULL) {
     return;
   }
@@ -77,15 +77,14 @@ void BroadcastResult(int rank, int root, std::vector<int> &output) {
   }
 }
 
-void HandleSameSourceDest(int rank, int source, const std::vector<int> &input_data, std::vector<int> &output) {
-  if (rank == source) {
-    output = input_data;
-  }
+void SameSD(int rank, int source, const std::vector<int> &input_data, std::vector<int> &output) {
+  uint64_t data_size = static_cast<uint64_t>(input_data.size());
 
-  auto data_size = static_cast<uint64_t>(input_data.size());
   MPI_Bcast(&data_size, 1, MPI_UINT64_T, source, MPI_COMM_WORLD);
 
-  if (rank != source) {
+  if (rank == source) {
+    output = input_data;
+  } else {
     output.resize(static_cast<std::size_t>(data_size));
   }
 
@@ -94,10 +93,30 @@ void HandleSameSourceDest(int rank, int source, const std::vector<int> &input_da
   }
 }
 
-void RouteDataInRing(int rank, int source, int dest, bool go_clockwise, int world_size,
-                     const std::vector<int> &input_data, std::vector<int> &output) {
+void DataRoute(int rank, int source, int dest, bool go_clockwise, int world_size, const std::vector<int> &input_data,
+               std::vector<int> &output) {
   std::vector<int> buffer;
   uint64_t data_size = 0;
+
+  if (world_size == 1) {
+    if (rank == source) {
+      output = input_data;
+    }
+    return;
+  }
+
+  if (world_size == 2) {
+    if (rank == source) {
+      buffer = input_data;
+      data_size = static_cast<uint64_t>(buffer.size());
+      SendAllInfo(dest, data_size, buffer);
+    }
+    if (rank == dest) {
+      ReceiveAllInfo(source, data_size, buffer);
+      output = buffer;
+    }
+    return;
+  }
 
   int left_neighbor = (rank - 1 + world_size) % world_size;
   int right_neighbor = (rank + 1) % world_size;
@@ -108,16 +127,16 @@ void RouteDataInRing(int rank, int source, int dest, bool go_clockwise, int worl
   if (rank == source) {
     buffer = input_data;
     data_size = static_cast<uint64_t>(buffer.size());
-    SendDataSizeAndData(next_hop, data_size, buffer);
+    SendAllInfo(next_hop, data_size, buffer);
   }
 
-  if (IsInRingPath(rank, source, dest, go_clockwise, world_size)) {
-    ReceiveDataSizeAndData(prev_hop, data_size, buffer);
+  if (InRing(rank, source, dest, go_clockwise, world_size)) {
+    ReceiveAllInfo(prev_hop, data_size, buffer);
 
     if (rank == dest) {
       output = buffer;
     } else {
-      SendDataSizeAndData(next_hop, data_size, buffer);
+      SendAllInfo(next_hop, data_size, buffer);
     }
   }
 }
@@ -147,25 +166,35 @@ bool ZhurinIRingTopologyMPI::RunImpl() {
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
   const auto &input = GetInput();
-  const int source = input.source;
-  const int dest = input.dest;
 
-  if (source < 0 || source >= world_size || dest < 0 || dest >= world_size) {
-    return false;
-  }
 
-  if (source == dest) {
-    HandleSameSourceDest(rank, source, input.data, GetOutput());
+  if (world_size == 1) {
+    int effective_source = 0;
+
+    
+    SameSD(rank, effective_source, input.data, GetOutput());
     return true;
   }
 
-  int clockwise_distance = (dest - source + world_size) % world_size;
-  int counter_distance = (source - dest + world_size) % world_size;
+  int effective_source = input.source % world_size;
+  int effective_dest = input.dest % world_size;
+
+
+  if (effective_source == effective_dest) {
+    SameSD(rank, effective_source, input.data, GetOutput());
+    return true;
+  }
+
+
+  int clockwise_distance = (effective_dest - effective_source + world_size) % world_size;
+  int counter_distance = (effective_source - effective_dest + world_size) % world_size;
   bool go_clockwise = clockwise_distance <= counter_distance;
 
-  RouteDataInRing(rank, source, dest, go_clockwise, world_size, input.data, GetOutput());
+ 
+  DataRoute(rank, effective_source, effective_dest, go_clockwise, world_size, input.data, GetOutput());
 
-  BroadcastResult(rank, dest, GetOutput());
+ 
+  BroadcastResult(rank, effective_dest, GetOutput());
   return true;
 }
 

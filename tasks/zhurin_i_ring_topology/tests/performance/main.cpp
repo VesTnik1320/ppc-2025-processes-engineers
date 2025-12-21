@@ -15,7 +15,8 @@ namespace zhurin_i_ring_topology {
 class ZhurinIRingTopologyPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
-    std::mt19937_64 rng(42);
+    std::random_device rd;
+    std::mt19937_64 rng(rd());
 
     const int world_size = 8;
 
