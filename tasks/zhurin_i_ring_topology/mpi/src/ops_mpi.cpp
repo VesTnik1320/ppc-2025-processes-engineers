@@ -2,6 +2,8 @@
 
 #include <mpi.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "zhurin_i_ring_topology/common/include/common.hpp"
@@ -10,7 +12,7 @@ namespace zhurin_i_ring_topology {
 
 namespace {
 
-void SendData(int rank, int sender, int receiver, uint64_t data_size, const std::vector<int> &data) {
+void SendData(int rank, int sender, int receiver, auto data_size, const std::vector<int> &data) {
   if (rank != sender) {
     return;
   }

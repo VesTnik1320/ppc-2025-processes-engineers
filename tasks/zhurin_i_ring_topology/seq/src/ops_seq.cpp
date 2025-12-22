@@ -1,6 +1,8 @@
 #include "zhurin_i_ring_topology/seq/include/ops_seq.hpp"
 
 #include <chrono>
+#include <cstdint>
+#include <cstdlib>
 #include <thread>
 #include <vector>
 

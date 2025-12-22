@@ -19,9 +19,9 @@
 namespace zhurin_i_ring_topology {
 
 // Предварительное объявление функции PrintTo
-void PrintTo(const RingMessage &msg, ::std::ostream *os);
+static void PrintTo(const RingMessage &msg, ::std::ostream *os);
 
-void PrintTo(const RingMessage &msg, ::std::ostream *os) {
+static void PrintTo(const RingMessage &msg, ::std::ostream *os) {
   *os << "RingMessage{source=" << msg.source << ", dest=" << msg.dest << ", data_size=" << msg.data.size()
       << ", go_clockwise=" << (msg.go_clockwise ? "true" : "false") << "}";
 }
@@ -46,7 +46,7 @@ class ZhurinIRingTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, 
 
     int is_mpi_initialized = 0;
     MPI_Initialized(&is_mpi_initialized);
-    if (is_mpi_initialized) {
+    if (is_mpi_initialized != 0) {
       int size = 0;
       MPI_Comm_size(MPI_COMM_WORLD, &size);
       const int max_node = std::max(test_message_.source, test_message_.dest);
