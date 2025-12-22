@@ -10,6 +10,7 @@ struct RingMessage {
   int source{};
   int dest{};
   std::vector<int> data;
+  bool go_clockwise = true;
 };
 
 using InType = RingMessage;

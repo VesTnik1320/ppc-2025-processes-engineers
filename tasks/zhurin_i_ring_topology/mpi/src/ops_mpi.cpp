@@ -180,9 +180,7 @@ bool ZhurinIRingTopologyMPI::RunImpl() {
     return true;
   }
 
-  int clockwise_distance = (effective_dest - effective_source + world_size) % world_size;
-  int counter_distance = (effective_source - effective_dest + world_size) % world_size;
-  bool go_clockwise = clockwise_distance <= counter_distance;
+  bool go_clockwise = input.go_clockwise;
 
   DataRoute(rank, effective_source, effective_dest, go_clockwise, world_size, input.data, GetOutput());
 
