@@ -40,12 +40,14 @@ void SendAllInfo(int dest_rank, uint64_t data_size, const std::vector<int> &data
   }
 
   MPI_Send(&data_size, 1, MPI_UINT64_T, dest_rank, size_tag, MPI_COMM_WORLD);
-  if (data_size > 0U) {
+  if (data_size > 0U && !data.empty()) {
     MPI_Send(data.data(), static_cast<int>(data_size), MPI_INT, dest_rank, data_tag, MPI_COMM_WORLD);
   }
 }
 
 void ReceiveAllInfo(int src_rank, uint64_t &data_size, std::vector<int> &data, int size_tag = 0, int data_tag = 1) {
+  data_size = 0;
+
   if (src_rank == MPI_PROC_NULL) {
     return;
   }
@@ -53,7 +55,10 @@ void ReceiveAllInfo(int src_rank, uint64_t &data_size, std::vector<int> &data, i
   MPI_Recv(&data_size, 1, MPI_UINT64_T, src_rank, size_tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   if (data_size > 0U) {
     data.resize(static_cast<std::size_t>(data_size));
-    MPI_Recv(data.data(), static_cast<int>(data_size), MPI_INT, src_rank, data_tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    if (data_size > 0U && !data.empty()) {
+      MPI_Recv(data.data(), static_cast<int>(data_size), MPI_INT, src_rank, data_tag, MPI_COMM_WORLD,
+               MPI_STATUS_IGNORE);
+    }
   }
 }
 
@@ -70,7 +75,7 @@ void BroadcastResult(int rank, int root, std::vector<int> &output) {
     output.resize(static_cast<std::size_t>(data_size));
   }
 
-  if (data_size > 0U) {
+  if (data_size > 0U && !output.empty()) {
     MPI_Bcast(output.data(), static_cast<int>(data_size), MPI_INT, root, MPI_COMM_WORLD);
   }
 }
@@ -86,7 +91,7 @@ void SameSD(int rank, int source, const std::vector<int> &input_data, std::vecto
     output.resize(static_cast<std::size_t>(data_size));
   }
 
-  if (data_size > 0U) {
+  if (data_size > 0U && !output.empty()) {
     MPI_Bcast(output.data(), static_cast<int>(data_size), MPI_INT, source, MPI_COMM_WORLD);
   }
 }
@@ -107,11 +112,15 @@ void DataRoute(int rank, int source, int dest, bool go_clockwise, int world_size
     if (rank == source) {
       buffer = input_data;
       data_size = static_cast<uint64_t>(buffer.size());
-      SendAllInfo(dest, data_size, buffer);
+      if (data_size > 0 || buffer.empty()) {
+        SendAllInfo(dest, data_size, buffer);
+      }
     }
     if (rank == dest) {
       ReceiveAllInfo(source, data_size, buffer);
-      output = buffer;
+      if (data_size > 0 || buffer.empty()) {
+        output = buffer;
+      }
     }
     return;
   }
@@ -125,16 +134,22 @@ void DataRoute(int rank, int source, int dest, bool go_clockwise, int world_size
   if (rank == source) {
     buffer = input_data;
     data_size = static_cast<uint64_t>(buffer.size());
-    SendAllInfo(next_hop, data_size, buffer);
+    if (data_size > 0 || buffer.empty()) {
+      SendAllInfo(next_hop, data_size, buffer);
+    }
   }
 
   if (InRing(rank, source, dest, go_clockwise, world_size)) {
     ReceiveAllInfo(prev_hop, data_size, buffer);
 
     if (rank == dest) {
-      output = buffer;
+      if (data_size > 0 || buffer.empty()) {
+        output = buffer;
+      }
     } else {
-      SendAllInfo(next_hop, data_size, buffer);
+      if (data_size > 0 || buffer.empty()) {
+        SendAllInfo(next_hop, data_size, buffer);
+      }
     }
   }
 }
