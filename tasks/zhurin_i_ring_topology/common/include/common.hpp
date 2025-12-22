@@ -11,6 +11,11 @@ struct RingMessage {
   int dest{};
   std::vector<int> data;
   bool go_clockwise = true;
+
+  RingMessage() = default;
+
+  RingMessage(int s, int d, std::vector<int> dta, bool gc)
+      : source(s), dest(d), data(std::move(dta)), go_clockwise(gc) {}
 };
 
 using InType = RingMessage;
