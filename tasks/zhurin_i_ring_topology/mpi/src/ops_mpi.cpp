@@ -2,8 +2,6 @@
 
 #include <mpi.h>
 
-#include <cstddef>
-#include <cstdint>
 #include <vector>
 
 #include "zhurin_i_ring_topology/common/include/common.hpp"
@@ -12,175 +10,37 @@ namespace zhurin_i_ring_topology {
 
 namespace {
 
-bool InRing(int rank, int source, int dest, bool go_clockwise, int world_size) {
-  if (source == dest) {
-    return false;
-  }
-
-  if (rank < 0 || rank >= world_size || source < 0 || source >= world_size || dest < 0 || dest >= world_size) {
-    return false;
-  }
-
-  if (go_clockwise) {
-    if (source < dest) {
-      return rank > source && rank <= dest;
-    }
-    return rank > source || rank <= dest;
-  }
-
-  if (source > dest) {
-    return rank < source && rank >= dest;
-  }
-  return rank < source || rank >= dest;
-}
-
-void SendAllInfo(int dest_rank, uint64_t data_size, const std::vector<int> &data, int size_tag = 0, int data_tag = 1) {
-  if (dest_rank == MPI_PROC_NULL) {
+void SendData(int rank, int sender, int receiver, uint64_t data_size, const std::vector<int> &data) {
+  if (rank != sender) {
     return;
   }
 
-  MPI_Send(&data_size, 1, MPI_UINT64_T, dest_rank, size_tag, MPI_COMM_WORLD);
-  if (data_size > 0U && !data.empty()) {
-    MPI_Send(data.data(), static_cast<int>(data_size), MPI_INT, dest_rank, data_tag, MPI_COMM_WORLD);
+  MPI_Send(&data_size, 1, MPI_UINT64_T, receiver, 0, MPI_COMM_WORLD);
+  if (data_size > 0) {
+    MPI_Send(data.data(), static_cast<int>(data_size), MPI_INT, receiver, 1, MPI_COMM_WORLD);
   }
 }
 
-void ReceiveAllInfo(int src_rank, uint64_t &data_size, std::vector<int> &data, int size_tag = 0, int data_tag = 1) {
-  data_size = 0;
-
-  if (src_rank == MPI_PROC_NULL) {
+void ReceiveData(int rank, int sender, int receiver, uint64_t &data_size, std::vector<int> &buffer) {
+  if (rank != receiver) {
     return;
   }
 
-  MPI_Recv(&data_size, 1, MPI_UINT64_T, src_rank, size_tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  if (data_size > 0U) {
-    data.resize(static_cast<std::size_t>(data_size));
-    if (data_size > 0U && !data.empty()) {
-      MPI_Recv(data.data(), static_cast<int>(data_size), MPI_INT, src_rank, data_tag, MPI_COMM_WORLD,
-               MPI_STATUS_IGNORE);
-    }
+  MPI_Recv(&data_size, 1, MPI_UINT64_T, sender, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  buffer.resize(static_cast<size_t>(data_size));
+  if (data_size > 0) {
+    MPI_Recv(buffer.data(), static_cast<int>(data_size), MPI_INT, sender, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 }
 
-void BroadcastResult(int rank, int root, std::vector<int> &output) {
-  uint64_t data_size = 0;
-
-  if (rank == root) {
-    data_size = static_cast<uint64_t>(output.size());
-  }
-
+void BroadcastToAll(int root, std::vector<int> &output) {
+  uint64_t data_size = static_cast<uint64_t>(output.size());
   MPI_Bcast(&data_size, 1, MPI_UINT64_T, root, MPI_COMM_WORLD);
 
-  if (rank != root) {
-    output.resize(static_cast<std::size_t>(data_size));
-  }
-
-  if (data_size > 0U && !output.empty()) {
+  if (data_size > 0) {
+    output.resize(static_cast<size_t>(data_size));
     MPI_Bcast(output.data(), static_cast<int>(data_size), MPI_INT, root, MPI_COMM_WORLD);
   }
-}
-
-void SameSD(int rank, int source, const std::vector<int> &input_data, std::vector<int> &output) {
-  auto data_size = static_cast<uint64_t>(input_data.size());
-
-  MPI_Bcast(&data_size, 1, MPI_UINT64_T, source, MPI_COMM_WORLD);
-
-  if (rank == source) {
-    output = input_data;
-  } else {
-    output.resize(static_cast<std::size_t>(data_size));
-  }
-
-  if (data_size > 0U && !output.empty()) {
-    MPI_Bcast(output.data(), static_cast<int>(data_size), MPI_INT, source, MPI_COMM_WORLD);
-  }
-}
-
-bool shouldProcessData(int data_size, const std::vector<int> &buffer) {
-  return data_size > 0 || buffer.empty();
-}
-
-void handleWorldSizeOne(int rank, int source, const std::vector<int> &input_data, std::vector<int> &output) {
-  if (rank == source) {
-    output = input_data;
-  }
-}
-
-void handleWorldSizeTwo(int rank, int source, int dest, const std::vector<int> &input_data, std::vector<int> &output) {
-  std::vector<int> buffer;
-  uint64_t data_size = 0;
-
-  if (rank == source) {
-    buffer = input_data;
-    data_size = static_cast<uint64_t>(buffer.size());
-    if (shouldProcessData(data_size, buffer)) {
-      SendAllInfo(dest, data_size, buffer);
-    }
-  }
-
-  if (rank == dest) {
-    ReceiveAllInfo(source, data_size, buffer);
-    if (shouldProcessData(data_size, buffer)) {
-      output = buffer;
-    }
-  }
-}
-
-void handleSourceNode(int rank, int source, int next_hop, const std::vector<int> &input_data) {
-  if (rank == source) {
-    std::vector<int> buffer = input_data;
-    uint64_t data_size = static_cast<uint64_t>(buffer.size());
-    if (shouldProcessData(data_size, buffer)) {
-      SendAllInfo(next_hop, data_size, buffer);
-    }
-  }
-}
-
-void handleIntermediateNodes(int rank, int dest, int prev_hop, int next_hop, std::vector<int> &buffer,
-                             std::vector<int> &output) {
-  uint64_t data_size = 0;
-  ReceiveAllInfo(prev_hop, data_size, buffer);
-
-  if (rank == dest) {
-    if (shouldProcessData(data_size, buffer)) {
-      output = buffer;
-    }
-  } else {
-    if (shouldProcessData(data_size, buffer)) {
-      SendAllInfo(next_hop, data_size, buffer);
-    }
-  }
-}
-
-void handleGeneralCase(int rank, int source, int dest, bool go_clockwise, int world_size,
-                       const std::vector<int> &input_data, std::vector<int> &output) {
-  int left_neighbor = (rank - 1 + world_size) % world_size;
-  int right_neighbor = (rank + 1) % world_size;
-
-  int next_hop = go_clockwise ? right_neighbor : left_neighbor;
-  int prev_hop = go_clockwise ? left_neighbor : right_neighbor;
-
-  handleSourceNode(rank, source, next_hop, input_data);
-
-  if (InRing(rank, source, dest, go_clockwise, world_size)) {
-    std::vector<int> buffer;
-    handleIntermediateNodes(rank, dest, prev_hop, next_hop, buffer, output);
-  }
-}
-
-void DataRoute(int rank, int source, int dest, bool go_clockwise, int world_size, const std::vector<int> &input_data,
-               std::vector<int> &output) {
-  if (world_size == 1) {
-    handleWorldSizeOne(rank, source, input_data, output);
-    return;
-  }
-
-  if (world_size == 2) {
-    handleWorldSizeTwo(rank, source, dest, input_data, output);
-    return;
-  }
-
-  handleGeneralCase(rank, source, dest, go_clockwise, world_size, input_data, output);
 }
 
 }  // namespace
@@ -209,25 +69,50 @@ bool ZhurinIRingTopologyMPI::RunImpl() {
 
   const auto &input = GetInput();
 
-  if (world_size == 1) {
-    int effective_source = 0;
-    SameSD(rank, effective_source, input.data, GetOutput());
+  int source = input.source % world_size;
+  int dest = input.dest % world_size;
+
+  if (source == dest) {
+    if (rank == source) {
+      GetOutput() = input.data;
+    }
+    BroadcastToAll(source, GetOutput());
     return true;
   }
 
-  int effective_source = input.source % world_size;
-  int effective_dest = input.dest % world_size;
+  int direction = input.go_clockwise ? 1 : -1;
+  int steps = 0;
 
-  if (effective_source == effective_dest) {
-    SameSD(rank, effective_source, input.data, GetOutput());
-    return true;
+  if (direction == 1) {
+    steps = (dest - source + world_size) % world_size;
+  } else {
+    steps = (source - dest + world_size) % world_size;
   }
 
-  bool go_clockwise = input.go_clockwise;
+  std::vector<int> buffer;
+  uint64_t data_size = 0;
 
-  DataRoute(rank, effective_source, effective_dest, go_clockwise, world_size, input.data, GetOutput());
+  for (int step = 0; step < steps; step++) {
+    int sender = (source + step * direction + world_size) % world_size;
+    int receiver = (sender + direction + world_size) % world_size;
 
-  BroadcastResult(rank, effective_dest, GetOutput());
+    if (step == 0) {
+      SendData(rank, sender, receiver, static_cast<uint64_t>(input.data.size()), input.data);
+    } else {
+      SendData(rank, sender, receiver, data_size, buffer);
+    }
+
+    ReceiveData(rank, sender, receiver, data_size, buffer);
+
+    if (receiver == dest && rank == dest) {
+      GetOutput() = buffer;
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  BroadcastToAll(dest, GetOutput());
+
   return true;
 }
 

@@ -11,7 +11,7 @@ namespace zhurin_i_ring_topology {
 ZhurinIRingTopologySEQ::ZhurinIRingTopologySEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = {};
+  GetOutput().clear();
 }
 
 bool ZhurinIRingTopologySEQ::ValidationImpl() {
@@ -20,15 +20,18 @@ bool ZhurinIRingTopologySEQ::ValidationImpl() {
 }
 
 bool ZhurinIRingTopologySEQ::PreProcessingImpl() {
-  GetOutput() = {};
+  GetOutput().clear();
   return true;
 }
 
 bool ZhurinIRingTopologySEQ::RunImpl() {
   const auto &input = GetInput();
   GetOutput() = input.data;
+
   if (input.source != input.dest) {
-    std::this_thread::sleep_for(std::chrono::microseconds(1));
+    int distance = std::abs(input.dest - input.source);
+    std::chrono::microseconds delay(static_cast<int64_t>(distance));
+    std::this_thread::sleep_for(delay);
   }
 
   return true;
