@@ -1,4 +1,4 @@
-# Отчет по лабораторной работе №1
+# Отчет по лабораторной работе №2
 ## Работу выполнил студент группы 3823Б1ПР1, Журин Иван Эдуардович
 ## Вариант № 7. Кольцо.
 
@@ -23,7 +23,7 @@
 Разработать программу, реализующую передачу массива целых чисел от процесса-источника к процессу-получателю в кольцевой топологии.  Требуется реализовать:
 
 - **Последовательный алгоритм (SEQ)** — вычисления в одном процессе.
-- **Параллельный алгоритм (MPI)** — распределение элементов матрицы между процессами и объединение частичных сумм.
+- **Параллельный алгоритм (MPI)** — распределение элементов вектора между процессами и объединение частичных сумм.
 
 ---
 
@@ -43,23 +43,29 @@
     - Если количество процессов = 1, то данные копируются в выходной буфер
     - Если источник и получатель совпадают, данные рассылаются всем процессам
 4. **Корректировка параметров:** приведение номера источника и получателя к диапазону [0, world_size-1]
-5. **Определение направления:** вычисление расстояния по часовой стрелке и против часовой стрелки для выбора кратчайшего пути
-6. **Передача данных:** 
-    - Для 2 процессов: прямая передача между процессами
-    - Для 3+ процессов: последовательная передача по кольцу через промежуточные процессы
-7. **Рассылка результата:** после получения данных процессом-получателем, результат рассылается всем процессам через MPI_Bcast
+5. **Определение направления передачи:** вычисление количества шагов `steps` для движения в указанном направлении (`go_clockwise`)
+6. **Передача данных:** Последовательная передача по кольцу через промежуточные процессы:
+   - Вычисление количества шагов `steps` на основе направления
+   - Циклическая передача данных от процесса к процессу с использованием `MPI_Send`/`MPI_Recv`
+   - Каждый процесс выполняет роль либо отправителя, либо получателя, либо просто участвует в барьере синхронизации
+7. **Рассылка результата:** После получения данных процессом-получателем результат рассылается всем процессам через `MPI_Bcast`
 ---
 
 ## Описание схемы параллельного алгоритма
 
-Схема передачи данных для 3+ процессов:
-1. **Инициализация:** каждый процесс получает свой rank и world_size
-2. **Определение соседей:** вычисление left_neighbor и right_neighbor по формулам:
-3. **Определение направления:** вычисление next_hop и prev_hop на основе go_clockwise:
-4. **Передача от источника:** Процесс-source отправляет данные следующему процессу (next_hop)
-5. **Промежуточная передача:** Процессы, находящиеся на пути (InRing() == true), получают данные от предыдущего (prev_hop) и отправляют следующему (next_hop)
-6. **Получение данных:** Процесс-dest получает данные и сохраняет в выходной буфер
-7. **Рассылка результата:** процесс-dest рассылает результат всем процессам
+Схема передачи данных для произвольного количества процессов:
+1. **Инициализация:** Каждый процесс получает свой `rank` и `world_size`
+2. **Корректировка адресов:** Приведение `source` и `dest` к диапазону `[0, world_size-1]` с помощью операции `% world_size`
+3. **Расчет параметров передачи:**
+   - Определение направления: `direction = go_clockwise ? 1 : -1`
+   - Расчет количества шагов: `steps = (direction == 1) ? (dest - source + world_size) % world_size : (source - dest + world_size) % world_size`
+4. **Последовательная передача по кольцу:** Для каждого шага от 0 до `steps-1`:
+   - Определение отправителя: `sender = (source + step * direction + world_size) % world_size`
+   - Определение получателя: `receiver = (sender + direction + world_size) % world_size`
+   - Отправитель передает данные получателю через `MPI_Send`
+   - Получатель принимает данные через `MPI_Recv`
+5. **Фиксация результата:** Процесс с `rank == dest` сохраняет полученные данные в выходной буфер
+6. **Широковещательная рассылка:** Процесс-получатель рассылает результат всем процессам через `MPI_Bcast`
 
 ---
 
@@ -94,7 +100,7 @@
 ### Ключевые особенности реализации
 
 - **Поддержка двух направлений:** передача по часовой и против часовой стрелки
-- **Оптимизация для малого количества процессов:** отдельные ветки для world_size = 1 и world_size = 2
+- **Единый алгоритм для любого количества процессов:** реализация использует универсальный подход с циклом по шагам передачи, что упрощает код 
 - **Гибкая обработка параметров:**приведение source/dest к диапазону с помощью операции модуля
 - **Согласованность данных:** идентичные результаты на всех процессах благодаря MPI_Bcast
 - **Масштабируемость:** поддержка произвольного числа процессо
@@ -109,48 +115,54 @@
 
 | Процессы |   Время    | Ускорение | Эффективность |
 |----------|------------|-----------|---------------|
-| 1        | 0.00029528 | 44.64     | 357.12        |
-| 2        | 0.00117876 | 11.18     | 44.72         |
-| 3        | 0.00453452 | 2.91      | 7.76          |
-| 4        | 0.00196226 | 6.72      | 13.44         |
-| 5        | 0.00636664 | 2.07      | 3.31          |
-| 6        | 0.00865762 | 1.52      | 2.03          |
-| 7        | 0.01068792 | 1.23      | 1.41          |
-| 8        | 0.01318048 | 1.00      | 1.00          |
+| 1        | 0.0031650  | 1.000     | 1.000         |
+| 2        | 0.00141492 | 0.224     | 0.112         |
+| 3        | 0.00330358 | 0.096     | 0.032         |
+| 4        | 0.00261582 | 0.121     | 0.030         |
+| 5        | 0.01114528 | 0.028     | 0.006         |
+| 6        | 0.01086402 | 0.029     | 0.005         |
+| 7        | 0.00995328 | 0.032     | 0.005         |
+| 8        | 0.01270302 | 0.025     | 0.003         |
+| 16       | 0.04862168 | 0.007     | 0.0004        |
 
 #### Время выполнения `task_run` (секунды)
 
 | Процессы |   Время    | Ускорение | Эффективность |
 |----------|------------|-----------|---------------|
-| 1        | 0.00033908 | 34.76     | 278.08        |
-| 2        | 0.00105836 | 11.13     | 44.52         |
-| 3        | 0.00443340 | 2.66      | 7.09          |
-| 4        | 0.00181508 | 6.49      | 12.98         |
-| 5        | 0.00447112 | 2.63      | 4.21          |
-| 6        | 0.00724758 | 1.63      | 2.17          |
-| 7        | 0.00832932 | 1.41      | 1.62          |
-| 8        | 0.01178238 | 1.00      | 1.00          |
+| 1        | 0.00036602 | 1.000     | 1.000         |
+| 2        | 0.00096098 | 0.381     | 0.190         |
+| 3        | 0.00299218 | 0.122     | 0.041         |
+| 4        | 0.00207246 | 0.177     | 0.044         |
+| 5        | 0.00808248 | 0.045     | 0.009         |
+| 6        | 0.00905142 | 0.040     | 0.007         |
+| 7        | 0.00880044 | 0.042     | 0.006         |
+| 8        | 0.01052404 | 0.035     | 0.004         |
+| 16       | 0.04475706 | 0.008     | 0.0005        |
 
 ### Анализ результатов
 
 #### Основные наблюдения:
-- Минимальное время при 1 процессе: Это соответствует последовательному копированию данных без коммуникационных издержек
-- Оптимальная производительность при 4 процессах: Это может быть связано с эффективной маршрутизацией и балансировкой нагрузки
-- Прогрессивное увеличение времени с ростом процессов
-- Аномалия при 3 процессах: Неожиданно высокое время выполнения(Возможные причины: неоптимальная маршрутизация, дисбаланс нагрузки)
+1. Наилучшая производительность при 1 процессе: что ожидаемо для коммуникационно-насыщенной задачи, где вычислительная работа минимальна
+2. Рост времени выполнения с увеличением количества процессов: из-за накладных расходов на MPI-коммуникации и синхронизацию
+3. Аномалии в масштабировании:
+- При 3 процессах время выше, чем при 4, что может быть связано с менее эффективной маршрутизацией для нечетного числа участников
+- Локальные минимумы при 2 и 4 процессах
+4. Экстремальное замедление при 16 процессах: время увеличивается в ~154 раза по сравнению с 1 процессом, что подтверждает коммуникационную природу задачи
 
 ### Проверка корректности
 Все функциональные тесты успешно пройдены, что подтверждает:
 1. Корректность передачи данных: данные доставляются от источника к получателю без искажений
 2. Обработка особых случаев: корректная работа при world_size = 1 и source = dest
 3. Согласованность результатов: все процессы получают одинаковый результат после широковещательной рассылки
-4. Масштабируемость: работа с различным количеством процессов (1-8)
+4. Масштабируемость алгоритма: корректная работа с различным количеством процессов (1-16)
+5. Обработка граничных значений: работа с пустыми массивами, экстремальными значениями (INT_MAX, INT_MIN)
 
 ---
 
 ## Заключение
 
-В ходе лабораторной работы были успешно реализованы последовательный и параллельный алгоритмы передачи данных в кольцевой топологии. Параллельная реализация на основе MPI корректно работает для любого количества процессов и эффективно обрабатывает все граничные случаи. 
+В ходе лабораторной работы были успешно реализованы последовательный и параллельный алгоритмы передачи данных в кольцевой топологии. Параллельная реализация на основе MPI корректно работает для любого количества процессов и эффективно обрабатывает все граничные случаи.
+В данной задаче при росте процессов растут накладные расходы, что приводит к замедлению. 
 
 ---
 
@@ -168,8 +180,8 @@
 namespace zhurin_i_ring_topology {
 
 struct RingMessage {
-  int source{};
-  int dest{};
+  int source = 0;
+  int dest = 0;
   std::vector<int> data;
   bool go_clockwise = true;
 };
@@ -232,130 +244,36 @@ namespace zhurin_i_ring_topology {
 
 namespace {
 
-bool InRing(int rank, int source, int dest, bool go_clockwise, int world_size) {
-  if (source == dest) {
-    return false;
-  }
-
-  if (rank < 0 || rank >= world_size || source < 0 || source >= world_size || dest < 0 || dest >= world_size) {
-    return false;
-  }
-
-  if (go_clockwise) {
-    if (source < dest) {
-      return rank > source && rank <= dest;
-    }
-    return rank > source || rank <= dest;
-  }
-
-  if (source > dest) {
-    return rank < source && rank >= dest;
-  }
-  return rank < source || rank >= dest;
-}
-
-void SendAllInfo(int dest_rank, uint64_t data_size, const std::vector<int> &data, int size_tag = 0, int data_tag = 1) {
-  if (dest_rank == MPI_PROC_NULL) {
+void SendData(int rank, int sender, int receiver, uint64_t data_size, const std::vector<int> &data) {
+  if (rank != sender) {
     return;
   }
 
-  MPI_Send(&data_size, 1, MPI_UINT64_T, dest_rank, size_tag, MPI_COMM_WORLD);
-  if (data_size > 0U) {
-    MPI_Send(data.data(), static_cast<int>(data_size), MPI_INT, dest_rank, data_tag, MPI_COMM_WORLD);
+  MPI_Send(&data_size, 1, MPI_UINT64_T, receiver, 0, MPI_COMM_WORLD);
+  if (data_size > 0) {
+    MPI_Send(data.data(), static_cast<int>(data_size), MPI_INT, receiver, 1, MPI_COMM_WORLD);
   }
 }
 
-void ReceiveAllInfo(int src_rank, uint64_t &data_size, std::vector<int> &data, int size_tag = 0, int data_tag = 1) {
-  if (src_rank == MPI_PROC_NULL) {
+void ReceiveData(int rank, int sender, int receiver, uint64_t &data_size, std::vector<int> &buffer) {
+  if (rank != receiver) {
     return;
   }
 
-  MPI_Recv(&data_size, 1, MPI_UINT64_T, src_rank, size_tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  if (data_size > 0U) {
-    data.resize(static_cast<std::size_t>(data_size));
-    MPI_Recv(data.data(), static_cast<int>(data_size), MPI_INT, src_rank, data_tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  MPI_Recv(&data_size, 1, MPI_UINT64_T, sender, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  buffer.resize(static_cast<size_t>(data_size));
+  if (data_size > 0) {
+    MPI_Recv(buffer.data(), static_cast<int>(data_size), MPI_INT, sender, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 }
 
-void BroadcastResult(int rank, int root, std::vector<int> &output) {
-  uint64_t data_size = 0;
-
-  if (rank == root) {
-    data_size = static_cast<uint64_t>(output.size());
-  }
-
+void BroadcastToAll(int root, std::vector<int> &output) {
+  auto data_size = static_cast<uint64_t>(output.size());
   MPI_Bcast(&data_size, 1, MPI_UINT64_T, root, MPI_COMM_WORLD);
 
-  if (rank != root) {
-    output.resize(static_cast<std::size_t>(data_size));
-  }
-
-  if (data_size > 0U) {
+  if (data_size > 0) {
+    output.resize(static_cast<size_t>(data_size));
     MPI_Bcast(output.data(), static_cast<int>(data_size), MPI_INT, root, MPI_COMM_WORLD);
-  }
-}
-
-void SameSD(int rank, int source, const std::vector<int> &input_data, std::vector<int> &output) {
-  auto data_size = static_cast<uint64_t>(input_data.size());
-
-  MPI_Bcast(&data_size, 1, MPI_UINT64_T, source, MPI_COMM_WORLD);
-
-  if (rank == source) {
-    output = input_data;
-  } else {
-    output.resize(static_cast<std::size_t>(data_size));
-  }
-
-  if (data_size > 0U) {
-    MPI_Bcast(output.data(), static_cast<int>(data_size), MPI_INT, source, MPI_COMM_WORLD);
-  }
-}
-
-void DataRoute(int rank, int source, int dest, bool go_clockwise, int world_size, const std::vector<int> &input_data,
-               std::vector<int> &output) {
-  std::vector<int> buffer;
-  uint64_t data_size = 0;
-
-  if (world_size == 1) {
-    if (rank == source) {
-      output = input_data;
-    }
-    return;
-  }
-
-  if (world_size == 2) {
-    if (rank == source) {
-      buffer = input_data;
-      data_size = static_cast<uint64_t>(buffer.size());
-      SendAllInfo(dest, data_size, buffer);
-    }
-    if (rank == dest) {
-      ReceiveAllInfo(source, data_size, buffer);
-      output = buffer;
-    }
-    return;
-  }
-
-  int left_neighbor = (rank - 1 + world_size) % world_size;
-  int right_neighbor = (rank + 1) % world_size;
-
-  int next_hop = go_clockwise ? right_neighbor : left_neighbor;
-  int prev_hop = go_clockwise ? left_neighbor : right_neighbor;
-
-  if (rank == source) {
-    buffer = input_data;
-    data_size = static_cast<uint64_t>(buffer.size());
-    SendAllInfo(next_hop, data_size, buffer);
-  }
-
-  if (InRing(rank, source, dest, go_clockwise, world_size)) {
-    ReceiveAllInfo(prev_hop, data_size, buffer);
-
-    if (rank == dest) {
-      output = buffer;
-    } else {
-      SendAllInfo(next_hop, data_size, buffer);
-    }
   }
 }
 
@@ -385,26 +303,50 @@ bool ZhurinIRingTopologyMPI::RunImpl() {
 
   const auto &input = GetInput();
 
-  if (world_size == 1) {
-    int effective_source = 0;
+  int source = input.source % world_size;
+  int dest = input.dest % world_size;
 
-    SameSD(rank, effective_source, input.data, GetOutput());
+  if (source == dest) {
+    if (rank == source) {
+      GetOutput() = input.data;
+    }
+    BroadcastToAll(source, GetOutput());
     return true;
   }
 
-  int effective_source = input.source % world_size;
-  int effective_dest = input.dest % world_size;
+  int direction = input.go_clockwise ? 1 : -1;
+  int steps = 0;
 
-  if (effective_source == effective_dest) {
-    SameSD(rank, effective_source, input.data, GetOutput());
-    return true;
+  if (direction == 1) {
+    steps = (dest - source + world_size) % world_size;
+  } else {
+    steps = (source - dest + world_size) % world_size;
   }
 
-  bool go_clockwise = input.go_clockwise;
+  std::vector<int> buffer;
+  uint64_t data_size = 0;
 
-  DataRoute(rank, effective_source, effective_dest, go_clockwise, world_size, input.data, GetOutput());
+  for (int step = 0; step < steps; step++) {
+    int sender = (source + step * direction + world_size) % world_size;
+    int receiver = (sender + direction + world_size) % world_size;
 
-  BroadcastResult(rank, effective_dest, GetOutput());
+    if (step == 0) {
+      SendData(rank, sender, receiver, static_cast<uint64_t>(input.data.size()), input.data);
+    } else {
+      SendData(rank, sender, receiver, data_size, buffer);
+    }
+
+    ReceiveData(rank, sender, receiver, data_size, buffer);
+
+    if (receiver == dest && rank == dest) {
+      GetOutput() = buffer;
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+
+  BroadcastToAll(dest, GetOutput());
+
   return true;
 }
 
@@ -453,6 +395,8 @@ class ZhurinIRingTopologySEQ : public BaseTask {
 #include "zhurin_i_ring_topology/seq/include/ops_seq.hpp"
 
 #include <chrono>
+#include <cstdint>
+#include <cstdlib>
 #include <thread>
 #include <vector>
 
@@ -463,7 +407,7 @@ namespace zhurin_i_ring_topology {
 ZhurinIRingTopologySEQ::ZhurinIRingTopologySEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = {};
+  GetOutput().clear();
 }
 
 bool ZhurinIRingTopologySEQ::ValidationImpl() {
@@ -472,15 +416,18 @@ bool ZhurinIRingTopologySEQ::ValidationImpl() {
 }
 
 bool ZhurinIRingTopologySEQ::PreProcessingImpl() {
-  GetOutput() = {};
+  GetOutput().clear();
   return true;
 }
 
 bool ZhurinIRingTopologySEQ::RunImpl() {
   const auto &input = GetInput();
   GetOutput() = input.data;
+
   if (input.source != input.dest) {
-    std::this_thread::sleep_for(std::chrono::microseconds(1));
+    int distance = std::abs(input.dest - input.source);
+    std::chrono::microseconds delay(static_cast<int64_t>(distance));
+    std::this_thread::sleep_for(delay);
   }
 
   return true;
