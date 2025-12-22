@@ -6,6 +6,7 @@
 #include <climits>
 #include <functional>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <tuple>
 #include <vector>

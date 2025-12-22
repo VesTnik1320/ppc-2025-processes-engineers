@@ -12,7 +12,7 @@ namespace zhurin_i_ring_topology {
 
 namespace {
 
-void SendData(int rank, int sender, int receiver, auto data_size, const std::vector<int> &data) {
+void SendData(int rank, int sender, int receiver, uint64_t data_size, const std::vector<int> &data) {
   if (rank != sender) {
     return;
   }
@@ -36,7 +36,7 @@ void ReceiveData(int rank, int sender, int receiver, uint64_t &data_size, std::v
 }
 
 void BroadcastToAll(int root, std::vector<int> &output) {
-  uint64_t data_size = static_cast<uint64_t>(output.size());
+  auto data_size = static_cast<uint64_t>(output.size());
   MPI_Bcast(&data_size, 1, MPI_UINT64_T, root, MPI_COMM_WORLD);
 
   if (data_size > 0) {
