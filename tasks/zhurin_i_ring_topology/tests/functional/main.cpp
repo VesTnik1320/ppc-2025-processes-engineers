@@ -18,6 +18,11 @@
 
 namespace zhurin_i_ring_topology {
 
+void PrintTo(const RingMessage &msg, ::std::ostream *os) {
+  *os << "RingMessage{source=" << msg.source << ", dest=" << msg.dest << ", data_size=" << msg.data.size()
+      << ", go_clockwise=" << (msg.go_clockwise ? "true" : "false") << "}";
+}
+
 using TestType = std::tuple<int, RingMessage>;
 
 class ZhurinIRingTopologyFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {

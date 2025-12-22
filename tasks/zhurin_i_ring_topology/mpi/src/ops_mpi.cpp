@@ -96,62 +96,91 @@ void SameSD(int rank, int source, const std::vector<int> &input_data, std::vecto
   }
 }
 
-void DataRoute(int rank, int source, int dest, bool go_clockwise, int world_size, const std::vector<int> &input_data,
-               std::vector<int> &output) {
+bool shouldProcessData(int data_size, const std::vector<int> &buffer) {
+  return data_size > 0 || buffer.empty();
+}
+
+void handleWorldSizeOne(int rank, int source, const std::vector<int> &input_data, std::vector<int> &output) {
+  if (rank == source) {
+    output = input_data;
+  }
+}
+
+void handleWorldSizeTwo(int rank, int source, int dest, const std::vector<int> &input_data, std::vector<int> &output) {
   std::vector<int> buffer;
   uint64_t data_size = 0;
 
-  if (world_size == 1) {
-    if (rank == source) {
-      output = input_data;
+  if (rank == source) {
+    buffer = input_data;
+    data_size = static_cast<uint64_t>(buffer.size());
+    if (shouldProcessData(data_size, buffer)) {
+      SendAllInfo(dest, data_size, buffer);
     }
-    return;
   }
 
-  if (world_size == 2) {
-    if (rank == source) {
-      buffer = input_data;
-      data_size = static_cast<uint64_t>(buffer.size());
-      if (data_size > 0 || buffer.empty()) {
-        SendAllInfo(dest, data_size, buffer);
-      }
+  if (rank == dest) {
+    ReceiveAllInfo(source, data_size, buffer);
+    if (shouldProcessData(data_size, buffer)) {
+      output = buffer;
     }
-    if (rank == dest) {
-      ReceiveAllInfo(source, data_size, buffer);
-      if (data_size > 0 || buffer.empty()) {
-        output = buffer;
-      }
-    }
-    return;
   }
+}
 
+void handleSourceNode(int rank, int source, int next_hop, const std::vector<int> &input_data) {
+  if (rank == source) {
+    std::vector<int> buffer = input_data;
+    uint64_t data_size = static_cast<uint64_t>(buffer.size());
+    if (shouldProcessData(data_size, buffer)) {
+      SendAllInfo(next_hop, data_size, buffer);
+    }
+  }
+}
+
+void handleIntermediateNodes(int rank, int dest, int prev_hop, int next_hop, std::vector<int> &buffer,
+                             std::vector<int> &output) {
+  uint64_t data_size = 0;
+  ReceiveAllInfo(prev_hop, data_size, buffer);
+
+  if (rank == dest) {
+    if (shouldProcessData(data_size, buffer)) {
+      output = buffer;
+    }
+  } else {
+    if (shouldProcessData(data_size, buffer)) {
+      SendAllInfo(next_hop, data_size, buffer);
+    }
+  }
+}
+
+void handleGeneralCase(int rank, int source, int dest, bool go_clockwise, int world_size,
+                       const std::vector<int> &input_data, std::vector<int> &output) {
   int left_neighbor = (rank - 1 + world_size) % world_size;
   int right_neighbor = (rank + 1) % world_size;
 
   int next_hop = go_clockwise ? right_neighbor : left_neighbor;
   int prev_hop = go_clockwise ? left_neighbor : right_neighbor;
 
-  if (rank == source) {
-    buffer = input_data;
-    data_size = static_cast<uint64_t>(buffer.size());
-    if (data_size > 0 || buffer.empty()) {
-      SendAllInfo(next_hop, data_size, buffer);
-    }
-  }
+  handleSourceNode(rank, source, next_hop, input_data);
 
   if (InRing(rank, source, dest, go_clockwise, world_size)) {
-    ReceiveAllInfo(prev_hop, data_size, buffer);
-
-    if (rank == dest) {
-      if (data_size > 0 || buffer.empty()) {
-        output = buffer;
-      }
-    } else {
-      if (data_size > 0 || buffer.empty()) {
-        SendAllInfo(next_hop, data_size, buffer);
-      }
-    }
+    std::vector<int> buffer;
+    handleIntermediateNodes(rank, dest, prev_hop, next_hop, buffer, output);
   }
+}
+
+void DataRoute(int rank, int source, int dest, bool go_clockwise, int world_size, const std::vector<int> &input_data,
+               std::vector<int> &output) {
+  if (world_size == 1) {
+    handleWorldSizeOne(rank, source, input_data, output);
+    return;
+  }
+
+  if (world_size == 2) {
+    handleWorldSizeTwo(rank, source, dest, input_data, output);
+    return;
+  }
+
+  handleGeneralCase(rank, source, dest, go_clockwise, world_size, input_data, output);
 }
 
 }  // namespace
@@ -182,7 +211,6 @@ bool ZhurinIRingTopologyMPI::RunImpl() {
 
   if (world_size == 1) {
     int effective_source = 0;
-
     SameSD(rank, effective_source, input.data, GetOutput());
     return true;
   }
