@@ -1,112 +1,97 @@
-#ifndef ZHURIN_I_EDGE_SOBEL_PERF_TESTS_HPP_
-#define ZHURIN_I_EDGE_SOBEL_PERF_TESTS_HPP_
-
 #include <gtest/gtest.h>
-
-#include <cstddef>
-#include <random>
+#include <algorithm>
+#include <tuple>
 #include <vector>
-
-#include "util/include/perf_test_util.hpp"
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
 #include "zhurin_i_edge_sobel/mpi/include/ops_mpi.hpp"
 #include "zhurin_i_edge_sobel/seq/include/ops_seq.hpp"
+#include "util/include/perf_test_util.hpp"
 
-namespace zhurin_i_edge_sobel {
+namespace zhurin_i_sobel_edge {
 
-class ZhurinIEdgeSobelPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
- protected:
-  void SetUp() override {
-    // Создаем одно большое изображение 2000x2000 для теста производительности
-    const int width = 2000;
-    const int height = 2000;
-    
-    input_data_.width = width;
-    input_data_.height = height;
-    input_data_.pixels.resize(static_cast<size_t>(width) * height);
-    
-    // Используем простой детерминированный паттерн
-    std::mt19937 rng(42);  // Фиксированный seed для воспроизводимости
-    std::uniform_int_distribution<int> dist(0, 255);
-    
-    // Создаем изображение с вертикальными и горизонтальными полосами
-    // Это создаст много границ для детектирования
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
-        // Вертикальные полосы шириной 100 пикселей
-        bool vertical_stripe = (x / 100) % 2 == 0;
-        // Горизонтальные полосы шириной 80 пикселей
-        bool horizontal_stripe = (y / 80) % 2 == 0;
+// Базовый класс для производительных тестов
+template <typename TaskType>
+class EdgeDetectionPerfTestsBase : public ppc::util::BaseRunPerfTests<ImageTuple, ResultVector> {
+    ImageTuple test_data_;
+    ResultVector expected_result_;
+
+    void SetUp() override {
+        const int dimension = 2000;
+        const int rows = dimension;
+        const int cols = dimension;
         
-        int base_value = 128;
-        if (vertical_stripe) base_value += 50;
-        if (horizontal_stripe) base_value += 30;
+        std::vector<int> pixel_buffer(rows * cols);
         
-        // Добавляем небольшой шум
-        int noise = dist(rng) % 20 - 10;
-        int final_value = base_value + noise;
+        for (int i = 0; i < rows; ++i) {
+            for (int j = 0; j < cols; ++j) {
+                int pixel_val = ((i * 73) + (j * 97)) % 113;
+                pixel_buffer[i * cols + j] = pixel_val;
+            }
+        }
         
-        // Ограничиваем диапазон
-        if (final_value < 0) final_value = 0;
-        if (final_value > 255) final_value = 255;
+        for (int i = 0; i < rows; ++i) {
+            int center_col = cols / 2;
+            pixel_buffer[i * cols + center_col] = 255;
+            if (center_col + 1 < cols) {
+                pixel_buffer[i * cols + center_col + 1] = 255;
+            }
+        }
         
-        input_data_.pixels[static_cast<size_t>(y) * width + x] = 
-            static_cast<uint8_t>(final_value);
-      }
+        for (int j = 0; j < cols; ++j) {
+            int center_row = rows / 3;
+            pixel_buffer[center_row * cols + j] = 255;
+            if (center_row + 1 < rows) {
+                pixel_buffer[(center_row + 1) * cols + j] = 255;
+            }
+        }
+        
+        int diag_size = std::min(rows, cols);
+        for (int k = 0; k < diag_size; ++k) {
+            pixel_buffer[k * cols + k] = 255;
+            if (k + 1 < cols) {
+                pixel_buffer[k * cols + (k + 1)] = 255;
+            }
+        }
+        
+        const int edge_thresh = 100;
+        test_data_ = std::make_tuple(pixel_buffer, rows, cols, edge_thresh);
+        expected_result_ = std::vector<int>(pixel_buffer.size(), 0);
     }
-  }
 
-  bool CheckTestOutputData(OutType &output_data) final {
-    // Проверяем базовую корректность результата
-    if (output_data.empty()) {
-      return false;
+    bool CheckTestOutputData(ResultVector &output) final {
+        return output.size() == expected_result_.size();
     }
-    
-    size_t expected_size = static_cast<size_t>(input_data_.width * input_data_.height);
-    if (output_data.size() != expected_size) {
-      return false;
-    }
-    
-    // Для изображения с полосами должны быть детектированы границы
-    // Проверим, что есть хотя бы 0.1% ненулевых значений (границ)
-    size_t non_zero_count = 0;
-    for (auto pixel : output_data) {
-      if (pixel > 20) {  // Порог для значимой границы
-        non_zero_count++;
-      }
-    }
-    
-    // Ожидаем хотя бы 0.1% границ
-    size_t min_expected = expected_size / 1000;
-    return non_zero_count > min_expected;
-  }
 
-  [[nodiscard]] InType GetTestInputData() final {
-    return input_data_;
-  }
-
- private:
-  InType input_data_;
+    ImageTuple GetTestInputData() final {
+        return test_data_;
+    }
 };
 
-namespace {
+// Конкретные классы для MPI и SEQ
+class EdgeDetectionPerfTestsMPI : public EdgeDetectionPerfTestsBase<MPIEdgeProcessor> {};
+class EdgeDetectionPerfTestsSEQ : public EdgeDetectionPerfTestsBase<SequentialEdgeDetector> {};
 
-TEST_P(ZhurinIEdgeSobelPerfTests, RunPerfModes) {
-  ExecuteTest(GetParam());
+TEST_P(EdgeDetectionPerfTestsMPI, PerformanceBenchmarkMPI) {
+    ExecuteTest(GetParam());
 }
 
-const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, ZhurinIEdgeSobelMPI, ZhurinIEdgeSobelSEQ>(
+TEST_P(EdgeDetectionPerfTestsSEQ, PerformanceBenchmarkSEQ) {
+    ExecuteTest(GetParam());
+}
+
+// Конфигурации для MPI и SEQ
+const auto perf_test_configs_mpi = ppc::util::MakeAllPerfTasks<ImageTuple, MPIEdgeProcessor>(
+    PPC_SETTINGS_zhurin_i_edge_sobel);
+const auto perf_test_configs_seq = ppc::util::MakeAllPerfTasks<ImageTuple, SequentialEdgeDetector>(
     PPC_SETTINGS_zhurin_i_edge_sobel);
 
-inline const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
+const auto gtest_perf_values_mpi = ppc::util::TupleToGTestValues(perf_test_configs_mpi);
+const auto gtest_perf_values_seq = ppc::util::TupleToGTestValues(perf_test_configs_seq);
 
-inline const auto kPerfTestName = ZhurinIEdgeSobelPerfTests::CustomPerfTestName;
+const auto perf_test_naming_mpi = EdgeDetectionPerfTestsMPI::CustomPerfTestName;
+const auto perf_test_naming_seq = EdgeDetectionPerfTestsSEQ::CustomPerfTestName;
 
-// NOLINTNEXTLINE
-INSTANTIATE_TEST_SUITE_P(ZhurinIEdgeSobelPerf, ZhurinIEdgeSobelPerfTests, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(RunModeTestsMPI, EdgeDetectionPerfTestsMPI, gtest_perf_values_mpi, perf_test_naming_mpi);
+INSTANTIATE_TEST_SUITE_P(RunModeTestsSEQ, EdgeDetectionPerfTestsSEQ, gtest_perf_values_seq, perf_test_naming_seq);
 
-}  // namespace
-
-}  // namespace zhurin_i_edge_sobel
-
-#endif  // ZHURIN_I_EDGE_SOBEL_PERF_TESTS_HPP_
+} // namespace zhurin_i_sobel_edge

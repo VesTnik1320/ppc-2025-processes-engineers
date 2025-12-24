@@ -1,126 +1,97 @@
 #include "zhurin_i_edge_sobel/seq/include/ops_seq.hpp"
 
-#include <algorithm>
+#include <array>
 #include <cmath>
 #include <vector>
 
-namespace zhurin_i_edge_sobel {
+#include "zhurin_i_edge_sobel/common/include/common.hpp"
 
-// Ядра Собеля (оптимизированные для вычисления |Gx| + |Gy|)
-const int SOBEL_X[3][3] = {
-    {-1, 0, 1},
-    {-2, 0, 2},
-    {-1, 0, 1}
-};
+namespace zhurin_i_sobel_edge {
 
-const int SOBEL_Y[3][3] = {
-    {-1, -2, -1},
-    {0, 0, 0},
-    {1, 2, 1}
-};
+static constexpr std::array<std::array<int, 3>, 3> H_FILTER = {
+    std::array<int, 3>{-1, 0, 1}, std::array<int, 3>{-2, 0, 2}, std::array<int, 3>{-1, 0, 1}};
 
-ZhurinIEdgeSobelSEQ::ZhurinIEdgeSobelSEQ(const InType& in) : input_(in) {
-  SetTypeOfTask(GetStaticTypeOfTask());
+static constexpr std::array<std::array<int, 3>, 3> V_FILTER = {
+    std::array<int, 3>{-1, -2, -1}, std::array<int, 3>{0, 0, 0}, std::array<int, 3>{1, 2, 1}};
+
+SequentialEdgeDetector::SequentialEdgeDetector(const ImageTuple &input)
+    : height(std::get<1>(input)), width(std::get<2>(input)), limit(std::get<3>(input)) {
+  SetTypeOfTask(getTypeMarker());
+  GetInput() = input;
 }
 
-std::string ZhurinIEdgeSobelSEQ::GetStaticTypeOfTask() {
-  return "ZhurinIEdgeSobelSEQ";
+bool SequentialEdgeDetector::ValidationImpl() {
+  return height > 0 && width > 0 && limit >= 0;
 }
 
-std::string ZhurinIEdgeSobelSEQ::GetTypeOfTask() const {
-  return task_type_;
-}
-
-void ZhurinIEdgeSobelSEQ::SetTypeOfTask(const std::string& type) {
-  task_type_ = type;
-}
-
-const InType& ZhurinIEdgeSobelSEQ::GetInput() const {
-  return input_;
-}
-
-InType& ZhurinIEdgeSobelSEQ::GetInput() {
-  return input_;
-}
-
-const OutType& ZhurinIEdgeSobelSEQ::GetOutput() const {
-  return output_;
-}
-
-OutType& ZhurinIEdgeSobelSEQ::GetOutput() {
-  return output_;
-}
-
-bool ZhurinIEdgeSobelSEQ::Validation() {
-  const auto& in = GetInput();
-  
-  // Проверяем минимальные размеры для оператора Собеля
-  if (in.width < 3 || in.height < 3) {
-    return false;
-  }
-  
-  // Проверяем размер массива пикселей
-  if (in.pixels.size() != static_cast<size_t>(in.width * in.height)) {
-    return false;
-  }
-  
+bool SequentialEdgeDetector::PreProcessingImpl() {
+  GetOutput() = std::vector<int>(static_cast<size_t>(height * width), 0);
   return true;
 }
 
-bool ZhurinIEdgeSobelSEQ::PreProcessing() {
-  output_.clear();
-  return true;
-}
+bool SequentialEdgeDetector::RunImpl() {
+  pixels = std::get<0>(GetInput());
+  auto &output = GetOutput();
 
-bool ZhurinIEdgeSobelSEQ::PostProcessing() {
-  return true;
-}
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      int h = computeHorizontal(x, y);
+      int v = computeVertical(x, y);
 
-std::vector<uint8_t> ZhurinIEdgeSobelSEQ::ApplySobel(const std::vector<uint8_t>& input) {
-  const int width = input_.width;
-  const int height = input_.height;
-  
-  std::vector<uint8_t> output(width * height, 0);
-  
-  // Оптимизированный алгоритм: вычисляем градиент как |Gx| + |Gy|
-  // и нормализуем делением на 4 (максимальное значение 1020 -> 255)
-  
-  for (int y = 1; y < height - 1; ++y) {
-    for (int x = 1; x < width - 1; ++x) {
-      // Вычисляем Gx и Gy без использования вложенных циклов
-      // для небольшого ускорения
-      
-      int idx = y * width + x;
-      
-      int gx = 
-          -input[idx - width - 1] - 2 * input[idx - width] - input[idx - width + 1] +
-          input[idx + width - 1] + 2 * input[idx + width] + input[idx + width + 1];
-      
-      int gy = 
-          -input[idx - width - 1] - 2 * input[idx - 1] - input[idx + width - 1] +
-          input[idx - width + 1] + 2 * input[idx + 1] + input[idx + width + 1];
-      
-      // Вычисляем величину градиента: |Gx| + |Gy|
-      int magnitude = std::abs(gx) + std::abs(gy);
-      
-      // Нормализация: максимальное значение 1020 (255*4), делим на 4
-      magnitude = std::min(255, magnitude / 4);
-      
-      output[idx] = static_cast<uint8_t>(magnitude);
+      int magnitude = static_cast<int>(std::sqrt(h * h + v * v));
+      output[y * width + x] = magnitude > limit ? magnitude : 0;
     }
   }
-  
-  return output;
-}
 
-bool ZhurinIEdgeSobelSEQ::Run() {
-  if (!Validation()) {
-    return false;
-  }
-  
-  GetOutput() = ApplySobel(GetInput().pixels);
-  
   return true;
 }
 
-}  // namespace zhurin_i_edge_sobel
+bool SequentialEdgeDetector::PostProcessingImpl() {
+  return true;
+}
+
+int SequentialEdgeDetector::computeHorizontal(int x, int y) {
+  int sum = 0;
+
+  for (int dy = -1; dy <= 1; ++dy) {
+    int ny = y + dy;
+    if (ny < 0 || ny >= height) {
+      continue;
+    }
+
+    for (int dx = -1; dx <= 1; ++dx) {
+      int nx = x + dx;
+      if (nx < 0 || nx >= width) {
+        continue;
+      }
+
+      sum += pixels[ny * width + nx] * H_FILTER[dy + 1][dx + 1];
+    }
+  }
+
+  return sum;
+}
+
+int SequentialEdgeDetector::computeVertical(int x, int y) {
+  int sum = 0;
+
+  for (int dy = -1; dy <= 1; ++dy) {
+    int ny = y + dy;
+    if (ny < 0 || ny >= height) {
+      continue;
+    }
+
+    for (int dx = -1; dx <= 1; ++dx) {
+      int nx = x + dx;
+      if (nx < 0 || nx >= width) {
+        continue;
+      }
+
+      sum += pixels[ny * width + nx] * V_FILTER[dy + 1][dx + 1];
+    }
+  }
+
+  return sum;
+}
+
+}  // namespace zhurin_i_sobel_edge

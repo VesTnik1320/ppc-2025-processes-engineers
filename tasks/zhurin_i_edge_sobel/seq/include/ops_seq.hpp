@@ -1,42 +1,34 @@
-#ifndef ZHURIN_I_EDGE_SOBEL_SEQ_INCLUDE_OPS_SEQ_HPP_
-#define ZHURIN_I_EDGE_SOBEL_SEQ_INCLUDE_OPS_SEQ_HPP_
+#ifndef ZHURIN_I_EDGE_DETECTION_SEQ_HPP
+#define ZHURIN_I_EDGE_DETECTION_SEQ_HPP
 
 #include <vector>
-#include <cstdint>
-#include <string>
 
+#include "task/include/task.hpp"
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
 
-namespace zhurin_i_edge_sobel {
+namespace zhurin_i_sobel_edge {
 
-class ZhurinIEdgeSobelSEQ {
+class SequentialEdgeDetector : public TaskInterface {
  public:
-  explicit ZhurinIEdgeSobelSEQ(const InType& in);
-  
-  static std::string GetStaticTypeOfTask();
-  std::string GetTypeOfTask() const;
-  
-  const InType& GetInput() const;
-  InType& GetInput();
-  const OutType& GetOutput() const;
-  OutType& GetOutput();
+  static constexpr auto getTypeMarker() {
+    return ppc::task::TypeOfTask::kSEQ;
+  }
 
-  bool Validation();
-  bool PreProcessing();
-  bool Run();
-  bool PostProcessing();
+  explicit SequentialEdgeDetector(const ImageTuple &input);
 
  private:
-  void SetTypeOfTask(const std::string& type);
-  
-  // Основная функция обработки
-  std::vector<uint8_t> ApplySobel(const std::vector<uint8_t>& input);
-  
-  InType input_;
-  OutType output_;
-  std::string task_type_;
+  bool ValidationImpl() final;
+  bool PreProcessingImpl() final;
+  bool RunImpl() final;
+  bool PostProcessingImpl() final;
+
+  int computeHorizontal(int x, int y);
+  int computeVertical(int x, int y);
+
+  int height, width, limit;
+  std::vector<int> pixels;
 };
 
-}  // namespace zhurin_i_edge_sobel
+}  // namespace zhurin_i_sobel_edge
 
-#endif  // ZHURIN_I_EDGE_SOBEL_SEQ_INCLUDE_OPS_SEQ_HPP_
+#endif
