@@ -20,7 +20,7 @@ class ZhurinIRingTopologyPerfTests : public ppc::util::BaseRunPerfTests<InType, 
     std::random_device rand;
     std::mt19937_64 rng(rand());
 
-    int world_size = 0; //для clang-tidy, но не  const int world_size = 8; как было в предыдущей реализации
+    int world_size = 0;  // для clang-tidy, но не  const int world_size = 8; как было в предыдущей реализации
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
     std::uniform_int_distribution<int> data_dist(1, 100);
