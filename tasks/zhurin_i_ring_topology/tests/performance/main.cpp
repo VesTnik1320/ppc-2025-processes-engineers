@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
+#include <mpi.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <random>
@@ -18,13 +20,15 @@ class ZhurinIRingTopologyPerfTests : public ppc::util::BaseRunPerfTests<InType, 
     std::random_device rand;
     std::mt19937_64 rng(rand());
 
-    const int world_size = 8;
+    int world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    std::uniform_int_distribution<int> rank_dist(0, world_size - 1);
     std::uniform_int_distribution<int> data_dist(1, 100);
 
     input_data_.source = 0;
-    input_data_.dest = 4;
+
+    input_data_.dest = std::min(4, world_size - 1);
+
     input_data_.go_clockwise = true;
 
     const size_t data_size = 1000000;
@@ -41,7 +45,6 @@ class ZhurinIRingTopologyPerfTests : public ppc::util::BaseRunPerfTests<InType, 
     if (output_data.empty()) {
       return true;
     }
-
     return true;
   }
 
