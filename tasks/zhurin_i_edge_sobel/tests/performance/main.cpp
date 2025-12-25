@@ -1,97 +1,85 @@
 #include <gtest/gtest.h>
+
 #include <algorithm>
 #include <tuple>
 #include <vector>
+
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
 #include "zhurin_i_edge_sobel/mpi/include/ops_mpi.hpp"
 #include "zhurin_i_edge_sobel/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
 
-namespace zhurin_i_sobel_edge {
+namespace zhurin_i_edge_sobel {
 
-// Базовый класс для производительных тестов
-template <typename TaskType>
-class EdgeDetectionPerfTestsBase : public ppc::util::BaseRunPerfTests<ImageTuple, ResultVector> {
-    ImageTuple test_data_;
-    ResultVector expected_result_;
+class TsibarevaERunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
+  InType input_data_;
+  OutType expected_output_;
 
-    void SetUp() override {
-        const int dimension = 2000;
-        const int rows = dimension;
-        const int cols = dimension;
-        
-        std::vector<int> pixel_buffer(rows * cols);
-        
-        for (int i = 0; i < rows; ++i) {
-            for (int j = 0; j < cols; ++j) {
-                int pixel_val = ((i * 73) + (j * 97)) % 113;
-                pixel_buffer[i * cols + j] = pixel_val;
-            }
-        }
-        
-        for (int i = 0; i < rows; ++i) {
-            int center_col = cols / 2;
-            pixel_buffer[i * cols + center_col] = 255;
-            if (center_col + 1 < cols) {
-                pixel_buffer[i * cols + center_col + 1] = 255;
-            }
-        }
-        
-        for (int j = 0; j < cols; ++j) {
-            int center_row = rows / 3;
-            pixel_buffer[center_row * cols + j] = 255;
-            if (center_row + 1 < rows) {
-                pixel_buffer[(center_row + 1) * cols + j] = 255;
-            }
-        }
-        
-        int diag_size = std::min(rows, cols);
-        for (int k = 0; k < diag_size; ++k) {
-            pixel_buffer[k * cols + k] = 255;
-            if (k + 1 < cols) {
-                pixel_buffer[k * cols + (k + 1)] = 255;
-            }
-        }
-        
-        const int edge_thresh = 100;
-        test_data_ = std::make_tuple(pixel_buffer, rows, cols, edge_thresh);
-        expected_result_ = std::vector<int>(pixel_buffer.size(), 0);
+  void SetUp() override {
+    int height = 3000;
+    int width = 3000;
+
+    std::vector<std::vector<int>> image_data(height, std::vector<int>(width));
+
+    for (int i = 0; i < height; ++i) {
+      for (int j = 0; j < width; ++j) {
+        int val = ((i * 90) + (j * 111)) % 109;
+        image_data[i][j] = val;
+      }
     }
 
-    bool CheckTestOutputData(ResultVector &output) final {
-        return output.size() == expected_result_.size();
+    for (int i = 0; i < height; ++i) {
+      image_data[i][width / 2] = 255;
+      if (((width / 2) + 1) < width) {
+        image_data[i][(width / 2) + 1] = 255;
+      }
     }
 
-    ImageTuple GetTestInputData() final {
-        return test_data_;
+    for (int j = 0; j < width; ++j) {
+      image_data[height / 3][j] = 255;
+      if (((height / 3) + 1) < height) {
+        image_data[(height / 3) + 1][j] = 255;
+      }
     }
+
+    for (int k = 0; k < std::min(height, width); ++k) {
+      image_data[k][k] = 255;
+      if ((k + 1) < width) {
+        image_data[k][k + 1] = 255;
+      }
+    }
+
+    std::vector<int> flat_data;
+    for (const auto &row : image_data) {
+      flat_data.insert(flat_data.end(), row.begin(), row.end());
+    }
+
+    int threshold = 100;
+    input_data_ = std::make_tuple(flat_data, height, width, threshold);
+    expected_output_ = std::vector<int>(flat_data.size(), 0);
+  }
+
+  bool CheckTestOutputData(OutType &output_data) final {
+    return (output_data.size() == expected_output_.size());
+  }
+
+  InType GetTestInputData() final {
+    return input_data_;
+  }
 };
 
-// Конкретные классы для MPI и SEQ
-class EdgeDetectionPerfTestsMPI : public EdgeDetectionPerfTestsBase<MPIEdgeProcessor> {};
-class EdgeDetectionPerfTestsSEQ : public EdgeDetectionPerfTestsBase<SequentialEdgeDetector> {};
-
-TEST_P(EdgeDetectionPerfTestsMPI, PerformanceBenchmarkMPI) {
-    ExecuteTest(GetParam());
+TEST_P(TsibarevaERunPerfTestProcesses, RunPerfModes) {
+  ExecuteTest(GetParam());
 }
 
-TEST_P(EdgeDetectionPerfTestsSEQ, PerformanceBenchmarkSEQ) {
-    ExecuteTest(GetParam());
-}
+const auto kAllPerfTasks =
+    ppc::util::MakeAllPerfTasks<InType, ZhurinIEdgeSobelMPI, ZhurinIEdgeSobelSEQ>(
+        PPC_SETTINGS_zhurin_i_edge_sobel);
 
-// Конфигурации для MPI и SEQ
-const auto perf_test_configs_mpi = ppc::util::MakeAllPerfTasks<ImageTuple, MPIEdgeProcessor>(
-    PPC_SETTINGS_zhurin_i_edge_sobel);
-const auto perf_test_configs_seq = ppc::util::MakeAllPerfTasks<ImageTuple, SequentialEdgeDetector>(
-    PPC_SETTINGS_zhurin_i_edge_sobel);
+const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
-const auto gtest_perf_values_mpi = ppc::util::TupleToGTestValues(perf_test_configs_mpi);
-const auto gtest_perf_values_seq = ppc::util::TupleToGTestValues(perf_test_configs_seq);
+const auto kPerfTestName = TsibarevaERunPerfTestProcesses::CustomPerfTestName;
 
-const auto perf_test_naming_mpi = EdgeDetectionPerfTestsMPI::CustomPerfTestName;
-const auto perf_test_naming_seq = EdgeDetectionPerfTestsSEQ::CustomPerfTestName;
+INSTANTIATE_TEST_SUITE_P(RunModeTests, TsibarevaERunPerfTestProcesses, kGtestValues, kPerfTestName);
 
-INSTANTIATE_TEST_SUITE_P(RunModeTestsMPI, EdgeDetectionPerfTestsMPI, gtest_perf_values_mpi, perf_test_naming_mpi);
-INSTANTIATE_TEST_SUITE_P(RunModeTestsSEQ, EdgeDetectionPerfTestsSEQ, gtest_perf_values_seq, perf_test_naming_seq);
-
-} // namespace zhurin_i_sobel_edge
+}  // namespace zhurin_i_edge_sobel

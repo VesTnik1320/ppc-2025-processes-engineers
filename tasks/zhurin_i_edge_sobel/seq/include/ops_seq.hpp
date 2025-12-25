@@ -1,34 +1,31 @@
-#ifndef ZHURIN_I_EDGE_DETECTION_SEQ_HPP
-#define ZHURIN_I_EDGE_DETECTION_SEQ_HPP
-
 #include <vector>
 
 #include "task/include/task.hpp"
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
 
-namespace zhurin_i_sobel_edge {
+namespace zhurin_i_edge_sobel {
 
-class SequentialEdgeDetector : public TaskInterface {
+class ZhurinIEdgeSobelSEQ: public BaseTask {
  public:
-  static constexpr auto getTypeMarker() {
+  static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
     return ppc::task::TypeOfTask::kSEQ;
   }
-
-  explicit SequentialEdgeDetector(const ImageTuple &input);
+  explicit ZhurinIEdgeSobelSEQ(const InType &in);
 
  private:
-  bool ValidationImpl() final;
-  bool PreProcessingImpl() final;
-  bool RunImpl() final;
-  bool PostProcessingImpl() final;
+  bool ValidationImpl() override;
+  bool PreProcessingImpl() override;
+  bool RunImpl() override;
+  bool PostProcessingImpl() override;
 
-  int computeHorizontal(int x, int y);
-  int computeVertical(int x, int y);
+  int GradientX(int x, int y);
+  int GradientY(int x, int y);
 
-  int height, width, limit;
-  std::vector<int> pixels;
+  int height_ = 0;
+  int width_ = 0;
+  int threshold_ = 0;
+
+  std::vector<int> input_pixels_;
 };
 
-}  // namespace zhurin_i_sobel_edge
-
-#endif
+}  // namespace zhurin_i_edge_sobel

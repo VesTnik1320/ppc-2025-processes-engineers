@@ -1,97 +1,90 @@
 #include "zhurin_i_edge_sobel/seq/include/ops_seq.hpp"
 
-#include <array>
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
 
-namespace zhurin_i_sobel_edge {
+namespace zhurin_i_edge_sobel {
 
-static constexpr std::array<std::array<int, 3>, 3> H_FILTER = {
-    std::array<int, 3>{-1, 0, 1}, std::array<int, 3>{-2, 0, 2}, std::array<int, 3>{-1, 0, 1}};
+const std::vector<std::vector<int>> kSobelX = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
 
-static constexpr std::array<std::array<int, 3>, 3> V_FILTER = {
-    std::array<int, 3>{-1, -2, -1}, std::array<int, 3>{0, 0, 0}, std::array<int, 3>{1, 2, 1}};
+const std::vector<std::vector<int>> kSobelY = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
 
-SequentialEdgeDetector::SequentialEdgeDetector(const ImageTuple &input)
-    : height(std::get<1>(input)), width(std::get<2>(input)), limit(std::get<3>(input)) {
-  SetTypeOfTask(getTypeMarker());
-  GetInput() = input;
+ZhurinIEdgeSobelSEQ::ZhurinIEdgeSobelSEQ(const InType &in)
+    : height_(std::get<1>(in)), width_(std::get<2>(in)), threshold_(std::get<3>(in)) {
+  SetTypeOfTask(GetStaticTypeOfTask());
+  GetInput() = in;
 }
 
-bool SequentialEdgeDetector::ValidationImpl() {
-  return height > 0 && width > 0 && limit >= 0;
-}
-
-bool SequentialEdgeDetector::PreProcessingImpl() {
-  GetOutput() = std::vector<int>(static_cast<size_t>(height * width), 0);
+bool ZhurinIEdgeSobelSEQ::ValidationImpl() {
   return true;
 }
 
-bool SequentialEdgeDetector::RunImpl() {
-  pixels = std::get<0>(GetInput());
-  auto &output = GetOutput();
+bool ZhurinIEdgeSobelSEQ::PreProcessingImpl() {
+  GetOutput() = std::vector<int>(static_cast<size_t>(height_ * width_), 0);
+  return true;
+}
 
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      int h = computeHorizontal(x, y);
-      int v = computeVertical(x, y);
+bool ZhurinIEdgeSobelSEQ::RunImpl() {
+  const auto &flat_pixels = std::get<0>(GetInput());
+  input_pixels_ = std::vector<int>(flat_pixels);
 
-      int magnitude = static_cast<int>(std::sqrt(h * h + v * v));
-      output[y * width + x] = magnitude > limit ? magnitude : 0;
+  auto &output_pixels = GetOutput();
+
+  for (int row = 0; row < height_; ++row) {
+    for (int col = 0; col < width_; ++col) {
+      int gx = GradientX(col, row);
+      int gy = GradientY(col, row);
+
+      int mag = static_cast<int>(std::sqrt((gx * gx) + (gy * gy) + 0.0));
+      output_pixels[(static_cast<size_t>(row) * width_) + col] = (mag <= threshold_) ? 0 : mag;
     }
   }
-
   return true;
 }
 
-bool SequentialEdgeDetector::PostProcessingImpl() {
+bool ZhurinIEdgeSobelSEQ::PostProcessingImpl() {
   return true;
 }
 
-int SequentialEdgeDetector::computeHorizontal(int x, int y) {
+int ZhurinIEdgeSobelSEQ::GradientX(int x, int y) {
   int sum = 0;
 
-  for (int dy = -1; dy <= 1; ++dy) {
-    int ny = y + dy;
-    if (ny < 0 || ny >= height) {
-      continue;
-    }
+  for (int ky = -1; ky <= 1; ++ky) {
+    for (int kx = -1; kx <= 1; ++kx) {
+      int nx = x + kx;
+      int ny = y + ky;
 
-    for (int dx = -1; dx <= 1; ++dx) {
-      int nx = x + dx;
-      if (nx < 0 || nx >= width) {
-        continue;
+      int weight = kSobelX[ky + 1][kx + 1];
+
+      if (nx >= 0 && nx < width_ && ny >= 0 && ny < height_) {
+        sum += weight * input_pixels_[(static_cast<size_t>(ny) * width_) + nx];
       }
-
-      sum += pixels[ny * width + nx] * H_FILTER[dy + 1][dx + 1];
     }
   }
 
   return sum;
 }
 
-int SequentialEdgeDetector::computeVertical(int x, int y) {
+int ZhurinIEdgeSobelSEQ::GradientY(int x, int y) {
   int sum = 0;
 
-  for (int dy = -1; dy <= 1; ++dy) {
-    int ny = y + dy;
-    if (ny < 0 || ny >= height) {
-      continue;
-    }
+  for (int ky = -1; ky <= 1; ++ky) {
+    for (int kx = -1; kx <= 1; ++kx) {
+      int nx = x + kx;
+      int ny = y + ky;
 
-    for (int dx = -1; dx <= 1; ++dx) {
-      int nx = x + dx;
-      if (nx < 0 || nx >= width) {
-        continue;
+      int weight = kSobelY[ky + 1][kx + 1];
+
+      if (nx >= 0 && nx < width_ && ny >= 0 && ny < height_) {
+        sum += weight * input_pixels_[(static_cast<size_t>(ny) * width_) + nx];
       }
-
-      sum += pixels[ny * width + nx] * V_FILTER[dy + 1][dx + 1];
     }
   }
 
   return sum;
 }
 
-}  // namespace zhurin_i_sobel_edge
+}  // namespace zhurin_i_edge_sobel

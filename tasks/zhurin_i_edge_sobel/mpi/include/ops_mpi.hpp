@@ -1,48 +1,49 @@
-#ifndef ZHURIN_I_EDGE_DETECTION_MPI_HPP
-#define ZHURIN_I_EDGE_DETECTION_MPI_HPP
-
 #include <vector>
 
 #include "task/include/task.hpp"
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
 
-namespace zhurin_i_sobel_edge {
+namespace zhurin_i_edge_sobel {
 
-class MPIEdgeProcessor : public TaskInterface {
+class ZhurinIEdgeSobelMPI : public BaseTask {
  public:
-  static constexpr auto getTypeMarker() {
+  static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
     return ppc::task::TypeOfTask::kMPI;
   }
-
-  explicit MPIEdgeProcessor(const ImageTuple &input);
+  explicit ZhurinIEdgeSobelMPI(const InType &in);
 
  private:
-  int rows, cols, cutoff;
-  std::vector<int> sourceImage;
-  std::vector<int> chunk;
-  int chunkRows, chunkRowsWithBorder;
+  int height_ = 0;
+  int width_ = 0;
+  int threshold_ = 0;
 
-  void broadcastMetadata();
-  void splitImage();
-  std::vector<int> processChunk();
-  int calcGradH(int px, int py);
-  int calcGradV(int px, int py);
-  void assembleResults(const std::vector<int> &partial);
+  std::vector<int> input_pixels_;
 
-  // Гало-строки - без изменений
+  std::vector<int> local_pixels_;
+  int local_height_ = 0;
+  int local_height_with_halo_ = 0;
+
+  void BroadcastParameters();
+  void DistributeRows();
+  std::vector<int> LocalGradientsComputing();
+  int GradientX(int x, int y);
+  int GradientY(int x, int y);
+  void GatherResults(const std::vector<int> &local_result);
+  void LocalRowsComputing(int world_rank, int world_size);
+
   void RowDistributionComputing(int world_rank, int world_size, int &base_rows, int &remainder, int &real_rows,
-                                int &need_top_halo, int &need_bottom_halo, int &total_rows);
+                                int &is_need_top_halo, int &is_need_bottom_halo, int &total_rows);
+
   void SendParameters(int world_rank, int world_size, int base_rows, int remainder,
                       std::vector<int> &real_rows_per_proc, std::vector<int> &send_counts,
                       std::vector<int> &send_displs) const;
+
   void DataDistribution(int world_rank, const std::vector<int> &send_counts, const std::vector<int> &send_displs);
 
-  bool ValidationImpl() final;
-  bool PreProcessingImpl() final;
-  bool RunImpl() final;
-  bool PostProcessingImpl() final;
+  bool ValidationImpl() override;
+  bool PreProcessingImpl() override;
+  bool RunImpl() override;
+  bool PostProcessingImpl() override;
 };
 
-}  // namespace zhurin_i_sobel_edge
-
-#endif
+}  // namespace zhurin_i_edge_sobel

@@ -1,106 +1,107 @@
-#ifndef ZHURIN_I_EDGE_DETECTION_COMMON_HPP
-#define ZHURIN_I_EDGE_DETECTION_COMMON_HPP
+#pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <string>
 #include <tuple>
 #include <vector>
-#include <stdexcept>
+
 #include "task/include/task.hpp"
 
-namespace zhurin_i_sobel_edge {
+namespace zhurin_i_edge_sobel {
 
-enum ImageSet {
-    SAMPLE_1 = 0,
-    SAMPLE_2,
-    SAMPLE_3, 
-    SAMPLE_4,
-    SAMPLE_5,
-    SAMPLE_6,
-    SAMPLE_7
-};
+enum class ImageSet : std::uint8_t { kTest1, kTest2, kTest3, kTest4, kTest5, kTest6, kTest7 };
 
-using ImageTuple = std::tuple<std::vector<int>, int, int, int>;
-using ResultVector = std::vector<int>;
-using TestPair = std::tuple<ImageSet, std::string>;
-using TaskInterface = ppc::task::Task<ImageTuple, ResultVector>;
+using InType = std::tuple<std::vector<int>, int, int, int>;
+using OutType = std::vector<int>;
+using TestType = std::tuple<ImageSet, std::string>;
+using BaseTask = ppc::task::Task<InType, OutType>;
 
-inline std::tuple<std::vector<int>, int, int> importImage(const std::string& path) {
-    std::ifstream stream(path);
-    if (!stream) {
-        throw std::runtime_error("File not found: " + path);
+inline std::tuple<std::vector<int>, int, int> ReadImageFile(const std::string &filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        return std::make_tuple(std::vector<int>(), 0, 0);
     }
-    
-    int h, w;
-    stream >> h >> w;
-    
-    std::vector<int> matrix(h * w);
-    for (int idx = 0; idx < h * w; ++idx) {
-        if (!(stream >> matrix[idx])) {
-            matrix.clear();
-            h = w = 0;
-            break;
+
+    int height = 0;
+    int width = 0;
+
+    file >> height;
+    file >> width;
+
+    std::vector<int> pixels;
+    pixels.reserve(static_cast<size_t>(height) * width);
+
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+            int pixel = 0;
+            if (!(file >> pixel)) {
+                return std::make_tuple(std::vector<int>(), 0, 0);
+            }
+            pixels.push_back(pixel);
         }
     }
-    
-    return {matrix, h, w};
+
+    file.close();
+    return std::make_tuple(pixels, height, width);
 }
 
-inline std::string extractRootDir(const std::string& configPath) {
-    const std::string suffix = "settings.json";
-    std::string dir = configPath;
-    
-    auto pos = dir.find(suffix);
-    if (pos != std::string::npos) {
-        dir.erase(pos);
+inline std::string GetDirectoryPath(const std::string &full_path) {
+    std::string result = full_path;
+    const std::string json_part = "settings.json";
+
+    if (result.size() >= json_part.size()) {
+        size_t pos = result.size() - json_part.size();
+        if (result.compare(pos, json_part.size(), json_part) == 0) {
+            result.erase(pos, json_part.size());
+        }
     }
-    
-    return dir;
+
+    return result;
 }
 
-inline std::tuple<std::vector<int>, int, int, int> prepareInputData(ImageSet sample) {
-    std::string filename;
-    switch(sample) {
-        case SAMPLE_1: filename = "img1.txt"; break;
-        case SAMPLE_2: filename = "img2.txt"; break;
-        case SAMPLE_3: filename = "img3.txt"; break;
-        case SAMPLE_4: filename = "img4.txt"; break;
-        case SAMPLE_5: filename = "img5.txt"; break;
-        case SAMPLE_6: filename = "img6.txt"; break;
-        case SAMPLE_7: filename = "img7.txt"; break;
-        default: filename = "img1.txt";
+inline std::string GetTestFilename(ImageSet type, const std::string& folder) {
+    // Явно задаем соответствие, чтобы избежать проблем с enum class
+    int test_num = 0;
+    switch (type) {
+        case ImageSet::kTest1: test_num = 1; break;
+        case ImageSet::kTest2: test_num = 2; break;
+        case ImageSet::kTest3: test_num = 3; break;
+        case ImageSet::kTest4: test_num = 4; break;
+        case ImageSet::kTest5: test_num = 5; break;
+        case ImageSet::kTest6: test_num = 6; break;
+        case ImageSet::kTest7: test_num = 7; break;
+        default: test_num = 1;
     }
     
-    std::string base_path = extractRootDir(PPC_SETTINGS_zhurin_i_edge_sobel);
-    std::string full_path = base_path + "data/cases/" + filename;
+    return folder + "/test" + std::to_string(test_num) + ".txt";
+}
+
+inline std::tuple<std::vector<int>, int, int, int> GenerateTestData(ImageSet type) {
+    std::string full_path = GetDirectoryPath(PPC_SETTINGS_zhurin_i_edge_sobel) +
+                            GetTestFilename(type, "data/cases");
+
+    // Явно разбираем кортеж, чтобы избежать structured binding
+    std::tuple<std::vector<int>, int, int> read_result = ReadImageFile(full_path);
     
-    auto [pixels, height, width] = importImage(full_path);
+    std::vector<int> pixels = std::get<0>(read_result);
+    int height = std::get<1>(read_result);
+    int width = std::get<2>(read_result);
+    
     int threshold = 100;
     
-    return {pixels, height, width, threshold};
+    return std::make_tuple(pixels, height, width, threshold);
 }
 
-inline ResultVector fetchExpected(ImageSet sample) {
-    std::string filename;
-    switch(sample) {
-        case SAMPLE_1: filename = "img1.txt"; break;
-        case SAMPLE_2: filename = "img2.txt"; break;
-        case SAMPLE_3: filename = "img3.txt"; break;
-        case SAMPLE_4: filename = "img4.txt"; break;
-        case SAMPLE_5: filename = "img5.txt"; break;
-        case SAMPLE_6: filename = "img6.txt"; break;
-        case SAMPLE_7: filename = "img7.txt"; break;
-        default: filename = "img1.txt";
-    }
+inline std::vector<int> GenerateExpectedOutput(ImageSet type) {
+    std::string full_path = GetDirectoryPath(PPC_SETTINGS_zhurin_i_edge_sobel) +
+                            GetTestFilename(type, "data/expected");
+
+    // Явно разбираем кортеж, чтобы избежать structured binding
+    std::tuple<std::vector<int>, int, int> read_result = ReadImageFile(full_path);
     
-    std::string base_path = extractRootDir(PPC_SETTINGS_zhurin_i_edge_sobel);
-    std::string full_path = base_path + "data/expected/" + filename;
-    
-    auto [pixels, height, width] = importImage(full_path);
-    
-    return pixels;
+    return std::get<0>(read_result);
 }
 
-} // namespace zhurin_i_sobel_edge
-
-#endif
+}  // namespace zhurin_i_edge_sobel
