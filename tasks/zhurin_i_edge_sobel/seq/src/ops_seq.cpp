@@ -1,6 +1,7 @@
 #include "zhurin_i_edge_sobel/seq/include/ops_seq.hpp"
 
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 #include "zhurin_i_edge_sobel/common/include/common.hpp"

@@ -3,7 +3,9 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
@@ -102,18 +104,25 @@ void ZhurinIEdgeSobelMPI::SendParameters(int world_rank, int world_size, int bas
 }
 
 void ZhurinIEdgeSobelMPI::DistributeRows() {
-  int rank, size;
+  int rank = 0;
+  int size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  int base, rem, real, top, bottom, total;
+  int base = 0;
+  int rem = 0;
+  int real = 0;
+  int top = 0;
+  int bottom = 0;
+  int total = 0;
+
   RowDistributionComputing(rank, size, base, rem, real, top, bottom, total);
 
-  std::vector<int> send_counts(size);
-  std::vector<int> send_displs(size);
-  std::vector<int> real_rows(size);
+  std::vector<int> send_counts(static_cast<size_t>(size), 0);
+  std::vector<int> send_displs(static_cast<size_t>(size), 0);
+  std::vector<int> real_rows_per_proc(static_cast<size_t>(size), 0);
 
-  SendParameters(rank, size, base, rem, real_rows, send_counts, send_displs);
+  SendParameters(rank, size, base, rem, real_rows_per_proc, send_counts, send_displs);
 
   MPI_Scatterv(rank == 0 ? input_pixels_.data() : nullptr, send_counts.data(), send_displs.data(), MPI_INT,
                local_pixels_.data(), total * width_, MPI_INT, 0, MPI_COMM_WORLD);
