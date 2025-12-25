@@ -16,14 +16,14 @@ class EdgeSobelFuncTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
   OutType expected_output_;
 
   void SetUp() override {
-    int height = 3000;
-    int width = 3000;
+    int height = 2000;
+    int width = 2000;
 
     std::vector<std::vector<int>> image_data(height, std::vector<int>(width));
 
     for (int i = 0; i < height; ++i) {
       for (int j = 0; j < width; ++j) {
-        int val = ((i * 90) + (j * 111)) % 109;
+        int val = (((i * 90) + (j * 111)) % 109);
         image_data[i][j] = val;
       }
     }

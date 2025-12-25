@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
+#include <mpi.h>
 
 namespace zhurin_i_edge_sobel {
 
