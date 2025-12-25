@@ -25,8 +25,8 @@ class ZhurinIEdgeSobelSEQ : public BaseTask {
     return true;
   }
 
-  int GradientX(int x, int y) const;
-  int GradientY(int x, int y) const;
+  [[nodiscard]] int GradientX(int x, int y) const;
+  [[nodiscard]] int GradientY(int x, int y) const;
 
   int height_ = 0;
   int width_ = 0;

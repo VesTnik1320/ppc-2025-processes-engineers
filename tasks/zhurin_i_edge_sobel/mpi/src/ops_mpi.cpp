@@ -51,7 +51,7 @@ bool ZhurinIEdgeSobelMPI::RunImpl() {
 }
 
 void ZhurinIEdgeSobelMPI::BroadcastParameters() {
-  std::array<int, 3> params = {height_, width_, threshold_};
+  std::array<int, 3> params{height_, width_, threshold_};
   MPI_Bcast(params.data(), static_cast<int>(params.size()), MPI_INT, 0, MPI_COMM_WORLD);
   height_ = params[0];
   width_ = params[1];
@@ -84,19 +84,19 @@ void ZhurinIEdgeSobelMPI::SendParameters(int world_rank, int world_size, int bas
   }
 
   int current_row = 0;
-  for (int proc = 0; proc < world_size; ++proc) {
-    int rows = base_rows + (proc < remainder ? 1 : 0);
-    real_rows_per_proc[proc] = rows;
+  for (int p = 0; p < world_size; ++p) {
+    int rows = base_rows + (p < remainder ? 1 : 0);
+    real_rows_per_proc[p] = rows;
 
-    int top = (proc > 0) ? 1 : 0;
-    int bottom = (proc < world_size - 1) ? 1 : 0;
+    int top = (p > 0) ? 1 : 0;
+    int bottom = (p < world_size - 1) ? 1 : 0;
 
     int start = current_row - top;
     int end = std::min(current_row + rows + bottom - 1, height_ - 1);
 
     int count_rows = end - start + 1;
-    send_counts[proc] = count_rows * width_;
-    send_displs[proc] = start * width_;
+    send_counts[p] = count_rows * width_;
+    send_displs[p] = start * width_;
 
     current_row += rows;
   }
@@ -108,7 +108,13 @@ void ZhurinIEdgeSobelMPI::DistributeRows() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  int base = 0, rem = 0, real = 0, top = 0, bottom = 0, total = 0;
+  int base = 0;
+  int rem = 0;
+  int real = 0;
+  int top = 0;
+  int bottom = 0;
+  int total = 0;
+
   RowDistributionComputing(rank, size, base, rem, real, top, bottom, total);
 
   std::vector<int> send_counts(static_cast<size_t>(size), 0);
@@ -130,35 +136,35 @@ std::vector<int> ZhurinIEdgeSobelMPI::LocalGradientsComputing() {
     for (int ix = 0; ix < width_; ++ix) {
       int gx = GradientX(ix, iy + offset);
       int gy = GradientY(ix, iy + offset);
-      int mag = static_cast<int>(std::sqrt((gx * gx) + (gy * gy)));
-      result[iy * width_ + ix] = (mag > threshold_) ? mag : 0;
+      int mag = static_cast<int>(std::sqrt(gx * gx + gy * gy));
+      result[(iy * width_) + ix] = ((mag > threshold_) ? mag : 0);
     }
   }
   return result;
 }
 
-[[nodiscard]] int ZhurinIEdgeSobelMPI::GradientX(int x, int y) {
+int ZhurinIEdgeSobelMPI::GradientX(int x, int y) {
   int sum = 0;
   for (int ky = -1; ky <= 1; ++ky) {
     for (int kx = -1; kx <= 1; ++kx) {
       int nx = x + kx;
       int ny = y + ky;
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < local_height_with_halo_) {
-        sum += local_pixels_[ny * width_ + nx] * kSobelX[ky + 1][kx + 1];
+        sum += (local_pixels_[(ny * width_) + nx] * kSobelX[ky + 1][kx + 1]);
       }
     }
   }
   return sum;
 }
 
-[[nodiscard]] int ZhurinIEdgeSobelMPI::GradientY(int x, int y) {
+int ZhurinIEdgeSobelMPI::GradientY(int x, int y) {
   int sum = 0;
   for (int ky = -1; ky <= 1; ++ky) {
     for (int kx = -1; kx <= 1; ++kx) {
       int nx = x + kx;
       int ny = y + ky;
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < local_height_with_halo_) {
-        sum += local_pixels_[ny * width_ + nx] * kSobelY[ky + 1][kx + 1];
+        sum += (local_pixels_[(ny * width_) + nx] * kSobelY[ky + 1][kx + 1]);
       }
     }
   }
@@ -166,11 +172,13 @@ std::vector<int> ZhurinIEdgeSobelMPI::LocalGradientsComputing() {
 }
 
 void ZhurinIEdgeSobelMPI::GatherResults(const std::vector<int> &local_result) {
-  int rank = 0, size = 0;
+  int rank = 0;
+  int size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   int local_size = static_cast<int>(local_result.size());
+
   std::vector<int> recv_counts(size);
   MPI_Allgather(&local_size, 1, MPI_INT, recv_counts.data(), 1, MPI_INT, MPI_COMM_WORLD);
 
@@ -187,9 +195,7 @@ void ZhurinIEdgeSobelMPI::GatherResults(const std::vector<int> &local_result) {
                  MPI_INT, MPI_COMM_WORLD);
 }
 
-// Неиспользуемые функции с комментарием для clang-tidy
-void ZhurinIEdgeSobelMPI::LocalRowsComputing(int /*unused1*/, int /*unused2*/) {}
-void ZhurinIEdgeSobelMPI::DataDistribution(int /*unused1*/, const std::vector<int> & /*unused2*/,
-                                           const std::vector<int> & /*unused3*/) {}
+void ZhurinIEdgeSobelMPI::LocalRowsComputing(int, int) {}
+void ZhurinIEdgeSobelMPI::DataDistribution(int, const std::vector<int> &, const std::vector<int> &) {}
 
 }  // namespace zhurin_i_edge_sobel
