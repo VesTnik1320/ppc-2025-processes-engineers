@@ -1,19 +1,10 @@
 #include "zhurin_i_edge_sobel/mpi/include/ops_mpi.hpp"
 
-#include <mpi.h>
-
 #include <algorithm>
-#include <array>
 #include <cmath>
-#include <cstddef>
 #include <vector>
 
-#include "zhurin_i_edge_sobel/common/include/common.hpp"
-
 namespace zhurin_i_edge_sobel {
-
-const std::vector<std::vector<int>> kSobelX = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
-const std::vector<std::vector<int>> kSobelY = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
 
 ZhurinIEdgeSobelMPI::ZhurinIEdgeSobelMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
@@ -29,7 +20,7 @@ ZhurinIEdgeSobelMPI::ZhurinIEdgeSobelMPI(const InType &in) {
     threshold_ = std::get<3>(in);
   }
 
-  GetOutput() = std::vector<int>();
+  GetOutput().clear();
 }
 
 bool ZhurinIEdgeSobelMPI::ValidationImpl() {
@@ -84,19 +75,19 @@ void ZhurinIEdgeSobelMPI::SendParameters(int world_rank, int world_size, int bas
   }
 
   int current_row = 0;
-  for (int proc = 0; proc < world_size; ++proc) {
-    int rows = base_rows + (proc < remainder ? 1 : 0);
-    real_rows_per_proc[proc] = rows;
+  for (int proc_idx = 0; proc_idx < world_size; ++proc_idx) {
+    int rows = base_rows + (proc_idx < remainder ? 1 : 0);
+    real_rows_per_proc[proc_idx] = rows;
 
-    int top = (proc > 0) ? 1 : 0;
-    int bottom = (proc < world_size - 1) ? 1 : 0;
+    int top = (proc_idx > 0) ? 1 : 0;
+    int bottom = (proc_idx < world_size - 1) ? 1 : 0;
 
     int start = current_row - top;
     int end = std::min(current_row + rows + bottom - 1, height_ - 1);
 
     int count_rows = end - start + 1;
-    send_counts[proc] = count_rows * width_;
-    send_displs[proc] = start * width_;
+    send_counts[proc_idx] = count_rows * width_;
+    send_displs[proc_idx] = start * width_;
 
     current_row += rows;
   }
@@ -108,13 +99,7 @@ void ZhurinIEdgeSobelMPI::DistributeRows() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  int base = 0;
-  int rem = 0;
-  int real = 0;
-  int top = 0;
-  int bottom = 0;
-  int total = 0;
-
+  int base = 0, rem = 0, real = 0, top = 0, bottom = 0, total = 0;
   RowDistributionComputing(rank, size, base, rem, real, top, bottom, total);
 
   std::vector<int> send_counts(static_cast<size_t>(size), 0);
@@ -135,35 +120,35 @@ std::vector<int> ZhurinIEdgeSobelMPI::LocalGradientsComputing() {
     for (int ix = 0; ix < width_; ++ix) {
       int gx = GradientX(ix, iy + offset);
       int gy = GradientY(ix, iy + offset);
-      int mag = static_cast<int>(std::sqrt((gx * gx) + (gy * gy)));
+      int mag = static_cast<int>(std::sqrt((gx * gx) + (gy * gy)));  // скобки для приоритета
       result[iy * width_ + ix] = (mag > threshold_) ? mag : 0;
     }
   }
   return result;
 }
 
-int ZhurinIEdgeSobelMPI::GradientX(int x, int y) {
+int ZhurinIEdgeSobelMPI::GradientX(int x, int y) const {
   int sum = 0;
   for (int ky = -1; ky <= 1; ++ky) {
     for (int kx = -1; kx <= 1; ++kx) {
       int nx = x + kx;
       int ny = y + ky;
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < local_height_with_halo_) {
-        sum += local_pixels_[ny * width_ + nx] * kSobelX[ky + 1][kx + 1];
+        sum += local_pixels_[(ny * width_) + nx] * kSobelX[ky + 1][kx + 1];  // скобки
       }
     }
   }
   return sum;
 }
 
-int ZhurinIEdgeSobelMPI::GradientY(int x, int y) {
+int ZhurinIEdgeSobelMPI::GradientY(int x, int y) const {
   int sum = 0;
   for (int ky = -1; ky <= 1; ++ky) {
     for (int kx = -1; kx <= 1; ++kx) {
       int nx = x + kx;
       int ny = y + ky;
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < local_height_with_halo_) {
-        sum += local_pixels_[ny * width_ + nx] * kSobelY[ky + 1][kx + 1];
+        sum += local_pixels_[(ny * width_) + nx] * kSobelY[ky + 1][kx + 1];  // скобки
       }
     }
   }
@@ -171,8 +156,7 @@ int ZhurinIEdgeSobelMPI::GradientY(int x, int y) {
 }
 
 void ZhurinIEdgeSobelMPI::GatherResults(const std::vector<int> &local_result) {
-  int rank = 0;
-  int size = 0;
+  int rank = 0, size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -188,13 +172,12 @@ void ZhurinIEdgeSobelMPI::GatherResults(const std::vector<int> &local_result) {
   }
 
   GetOutput().resize(static_cast<size_t>(total_size));
-
   MPI_Allgatherv(local_result.data(), local_size, MPI_INT, GetOutput().data(), recv_counts.data(), displs.data(),
                  MPI_INT, MPI_COMM_WORLD);
 }
 
-void ZhurinIEdgeSobelMPI::LocalRowsComputing(int /*rank*/, int /*size*/) {}
-void ZhurinIEdgeSobelMPI::DataDistribution(int /*rank*/, const std::vector<int> & /*a*/,
-                                           const std::vector<int> & /*b*/) {}
+void ZhurinIEdgeSobelMPI::LocalRowsComputing(int /*unused*/, int /*unused*/) {}
+void ZhurinIEdgeSobelMPI::DataDistribution(int /*unused*/, const std::vector<int> & /*unused*/,
+                                           const std::vector<int> & /*unused*/) {}
 
 }  // namespace zhurin_i_edge_sobel
