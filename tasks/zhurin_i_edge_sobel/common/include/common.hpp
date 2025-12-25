@@ -101,8 +101,14 @@ inline std::string GetTestFilename(ImageSet type, const std::string &folder) {
   return folder + "/test" + std::to_string(test_num) + ".txt";
 }
 
+inline std::string GetTestFilename(ImageSet type) {
+  int test_num = static_cast<int>(type) + 1;  // kTest1 -> 1, kTest2 -> 2 и т.д.
+  return "test" + std::to_string(test_num) + ".txt";
+}
+
 inline std::tuple<std::vector<int>, int, int, int> GenerateTestData(ImageSet type) {
-  std::string full_path = GetDirectoryPath(PPC_SETTINGS_zhurin_i_edge_sobel) + GetTestFilename(type, "data/cases");
+  std::string full_path = GetDirectoryPath(PPC_SETTINGS_zhurin_i_edge_sobel) + "tasks/zhurin_i_edge_sobel/data/cases/" +
+                          GetTestFilename(type);
 
   std::tuple<std::vector<int>, int, int> read_result = ReadImageFile(full_path);
 
@@ -116,7 +122,8 @@ inline std::tuple<std::vector<int>, int, int, int> GenerateTestData(ImageSet typ
 }
 
 inline std::vector<int> GenerateExpectedOutput(ImageSet type) {
-  std::string full_path = GetDirectoryPath(PPC_SETTINGS_zhurin_i_edge_sobel) + GetTestFilename(type, "data/expected");
+  std::string full_path = GetDirectoryPath(PPC_SETTINGS_zhurin_i_edge_sobel) +
+                          "tasks/zhurin_i_edge_sobel/data/expected/" + GetTestFilename(type);
 
   std::tuple<std::vector<int>, int, int> read_result = ReadImageFile(full_path);
 
