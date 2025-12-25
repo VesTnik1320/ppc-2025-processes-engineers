@@ -168,7 +168,8 @@ int ZhurinIEdgeSobelMPI::GradientY(int x, int y) const {
 }
 
 void ZhurinIEdgeSobelMPI::GatherResults(const std::vector<int> &local_result) {
-  int rank = 0, size = 0;
+  int rank = 0;
+  int size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -188,7 +189,8 @@ void ZhurinIEdgeSobelMPI::GatherResults(const std::vector<int> &local_result) {
                  MPI_INT, MPI_COMM_WORLD);
 }
 
-void ZhurinIEdgeSobelMPI::LocalRowsComputing(int, int) {}
-void ZhurinIEdgeSobelMPI::DataDistribution(int, const std::vector<int> &, const std::vector<int> &) {}
+void ZhurinIEdgeSobelMPI::LocalRowsComputing(int /*unused*/, int /*unused*/) {}
+void ZhurinIEdgeSobelMPI::DataDistribution(int /*unused*/, const std::vector<int> & /*unused1*/,
+                                           const std::vector<int> & /*unused2*/) {}
 
 }  // namespace zhurin_i_edge_sobel
