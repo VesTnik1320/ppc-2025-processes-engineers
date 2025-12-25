@@ -12,7 +12,6 @@
 
 namespace zhurin_i_edge_sobel {
 
-// Собелевские ядра
 const std::vector<std::vector<int>> kSobelX = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
 const std::vector<std::vector<int>> kSobelY = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
 

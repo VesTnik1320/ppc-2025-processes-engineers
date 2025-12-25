@@ -57,7 +57,7 @@ int ZhurinIEdgeSobelSEQ::GradientY(int x, int y) const {
       int nx = x + kx;
       int ny = y + ky;
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < height_) {
-        sum += input_pixels_[ny * width_ + nx] * kSobelY[ky + 1][kx + 1];
+        sum += input_pixels_[(ny * width_) + nx] * kSobelY[ky + 1][kx + 1];
       }
     }
   }

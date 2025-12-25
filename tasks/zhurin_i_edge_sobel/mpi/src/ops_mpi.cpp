@@ -132,8 +132,8 @@ std::vector<int> ZhurinIEdgeSobelMPI::LocalGradientsComputing() {
     for (int ix = 0; ix < width_; ++ix) {
       int gx = GradientX(ix, iy + offset);
       int gy = GradientY(ix, iy + offset);
-      int mag = static_cast<int>(std::sqrt((gx * gx) + (gy * gy)));  // скобки для приоритета
-      result[iy * width_ + ix] = (mag > threshold_) ? mag : 0;
+      int mag = static_cast<int>(std::sqrt((gx * gx) + (gy * gy)));
+      result[(iy * width_) + ix] = (mag > threshold_) ? mag : 0;
     }
   }
   return result;
@@ -146,7 +146,7 @@ int ZhurinIEdgeSobelMPI::GradientX(int x, int y) const {
       int nx = x + kx;
       int ny = y + ky;
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < local_height_with_halo_) {
-        sum += local_pixels_[(ny * width_) + nx] * kSobelX[ky + 1][kx + 1];  // скобки
+        sum += local_pixels_[(ny * width_) + nx] * kSobelX[ky + 1][kx + 1];
       }
     }
   }
@@ -160,7 +160,7 @@ int ZhurinIEdgeSobelMPI::GradientY(int x, int y) const {
       int nx = x + kx;
       int ny = y + ky;
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < local_height_with_halo_) {
-        sum += local_pixels_[(ny * width_) + nx] * kSobelY[ky + 1][kx + 1];  // скобки
+        sum += local_pixels_[(ny * width_) + nx] * kSobelY[ky + 1][kx + 1];
       }
     }
   }
@@ -188,8 +188,7 @@ void ZhurinIEdgeSobelMPI::GatherResults(const std::vector<int> &local_result) {
                  MPI_INT, MPI_COMM_WORLD);
 }
 
-void ZhurinIEdgeSobelMPI::LocalRowsComputing(int /*unused*/, int /*unused*/) {}
-void ZhurinIEdgeSobelMPI::DataDistribution(int /*unused*/, const std::vector<int> & /*unused*/,
-                                           const std::vector<int> & /*unused*/) {}
+void ZhurinIEdgeSobelMPI::LocalRowsComputing(int, int) {}
+void ZhurinIEdgeSobelMPI::DataDistribution(int, const std::vector<int> &, const std::vector<int> &) {}
 
 }  // namespace zhurin_i_edge_sobel
