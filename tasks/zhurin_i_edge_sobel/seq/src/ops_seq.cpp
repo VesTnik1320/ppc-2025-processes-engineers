@@ -12,7 +12,7 @@ const std::vector<std::vector<int>> kSobelX = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1
 const std::vector<std::vector<int>> kSobelY = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
 
 ZhurinIEdgeSobelSEQ::ZhurinIEdgeSobelSEQ(const InType &in)
-    : input_pixels_(std::get<0>(in)), height_(std::get<1>(in)), width_(std::get<2>(in)), threshold_(std::get<3>(in)) {
+    : height_(std::get<1>(in)), width_(std::get<2>(in)), threshold_(std::get<3>(in)), input_pixels_(std::get<0>(in)) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
 }
