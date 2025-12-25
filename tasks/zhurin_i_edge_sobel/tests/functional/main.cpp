@@ -5,15 +5,15 @@
 #include <string>
 #include <tuple>
 
+#include "util/include/func_test_util.hpp"
+#include "util/include/util.hpp"
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
 #include "zhurin_i_edge_sobel/mpi/include/ops_mpi.hpp"
 #include "zhurin_i_edge_sobel/seq/include/ops_seq.hpp"
-#include "util/include/func_test_util.hpp"
-#include "util/include/util.hpp"
 
 namespace zhurin_i_edge_sobel {
 
-class TsibarevaERunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
+class EdgeSobelFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static std::string PrintTestParam(const TestType &test_param) {
     std::string description = std::get<1>(test_param);
@@ -43,26 +43,26 @@ class TsibarevaERunFuncTestsProcesses : public ppc::util::BaseRunFuncTests<InTyp
 
 namespace {
 
-TEST_P(TsibarevaERunFuncTestsProcesses, MatmulFromPic) {
+TEST_P(EdgeSobelFuncTests, MatmulFromPic) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 7> kTestParams = {
-    std::make_tuple(ImageSet::kTest1, "test1_5x5"),   std::make_tuple(ImageSet::kTest2, "test2_10x10_random"),
-    std::make_tuple(ImageSet::kTest3, "test3_large"), std::make_tuple(ImageSet::kTest4, "test4_5x10"),
-    std::make_tuple(ImageSet::kTest5, "test5_10x5"),  std::make_tuple(ImageSet::kTest6, "test6_3x3_kernel_size"),
-    std::make_tuple(ImageSet::kTest7, "test7_2x2")};
+const std::array<TestType, 10> kTestParams = {
+    std::make_tuple(ImageSet::kTest1, "test1"), std::make_tuple(ImageSet::kTest2, "test2"),
+    std::make_tuple(ImageSet::kTest3, "test3"), std::make_tuple(ImageSet::kTest4, "test4"),
+    std::make_tuple(ImageSet::kTest5, "test5"), std::make_tuple(ImageSet::kTest6, "test6"),
+    std::make_tuple(ImageSet::kTest7, "test7"), std::make_tuple(ImageSet::kTest8, "test8"),
+    std::make_tuple(ImageSet::kTest9, "test9"), std::make_tuple(ImageSet::kTest10, "test10")};
 
-const auto kTestTasksList = std::tuple_cat(ppc::util::AddFuncTask<ZhurinIEdgeSobelMPI, InType>(
-                                               kTestParams, PPC_SETTINGS_zhurin_i_edge_sobel),
-                                           ppc::util::AddFuncTask<ZhurinIEdgeSobelSEQ, InType>(
-                                               kTestParams, PPC_SETTINGS_zhurin_i_edge_sobel));
+const auto kTestTasksList =
+    std::tuple_cat(ppc::util::AddFuncTask<ZhurinIEdgeSobelMPI, InType>(kTestParams, PPC_SETTINGS_zhurin_i_edge_sobel),
+                   ppc::util::AddFuncTask<ZhurinIEdgeSobelSEQ, InType>(kTestParams, PPC_SETTINGS_zhurin_i_edge_sobel));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
-const auto kPerfTestName = TsibarevaERunFuncTestsProcesses::PrintFuncTestName<TsibarevaERunFuncTestsProcesses>;
+const auto kPerfTestName = EdgeSobelFuncTests::PrintFuncTestName<EdgeSobelFuncTests>;
 
-INSTANTIATE_TEST_SUITE_P(PicMatrixTests, TsibarevaERunFuncTestsProcesses, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(RunMatrixTests, EdgeSobelFuncTests, kGtestValues, kPerfTestName);
 
 }  // namespace
 

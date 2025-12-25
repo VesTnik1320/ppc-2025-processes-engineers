@@ -4,14 +4,14 @@
 #include <tuple>
 #include <vector>
 
+#include "util/include/perf_test_util.hpp"
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
 #include "zhurin_i_edge_sobel/mpi/include/ops_mpi.hpp"
 #include "zhurin_i_edge_sobel/seq/include/ops_seq.hpp"
-#include "util/include/perf_test_util.hpp"
 
 namespace zhurin_i_edge_sobel {
 
-class TsibarevaERunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
+class EdgeSobelFuncTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
   InType input_data_;
   OutType expected_output_;
 
@@ -68,18 +68,17 @@ class TsibarevaERunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType
   }
 };
 
-TEST_P(TsibarevaERunPerfTestProcesses, RunPerfModes) {
+TEST_P(EdgeSobelFuncTests, RunPerfModes) {
   ExecuteTest(GetParam());
 }
 
 const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, ZhurinIEdgeSobelMPI, ZhurinIEdgeSobelSEQ>(
-        PPC_SETTINGS_zhurin_i_edge_sobel);
+    ppc::util::MakeAllPerfTasks<InType, ZhurinIEdgeSobelMPI, ZhurinIEdgeSobelSEQ>(PPC_SETTINGS_zhurin_i_edge_sobel);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
-const auto kPerfTestName = TsibarevaERunPerfTestProcesses::CustomPerfTestName;
+const auto kPerfTestName = EdgeSobelFuncTests::CustomPerfTestName;
 
-INSTANTIATE_TEST_SUITE_P(RunModeTests, TsibarevaERunPerfTestProcesses, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(RunPerfTests, EdgeSobelFuncTests, kGtestValues, kPerfTestName);
 
 }  // namespace zhurin_i_edge_sobel

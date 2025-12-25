@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 
 #include "task/include/task.hpp"
@@ -5,26 +7,30 @@
 
 namespace zhurin_i_edge_sobel {
 
-class ZhurinIEdgeSobelSEQ: public BaseTask {
+class ZhurinIEdgeSobelSEQ : public BaseTask {
  public:
   static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
     return ppc::task::TypeOfTask::kSEQ;
   }
+
   explicit ZhurinIEdgeSobelSEQ(const InType &in);
 
  private:
-  bool ValidationImpl() override;
+  bool ValidationImpl() override {
+    return true;
+  }
   bool PreProcessingImpl() override;
   bool RunImpl() override;
-  bool PostProcessingImpl() override;
+  bool PostProcessingImpl() override {
+    return true;
+  }
 
-  int GradientX(int x, int y);
-  int GradientY(int x, int y);
+  int GradientX(int x, int y) const;
+  int GradientY(int x, int y) const;
 
   int height_ = 0;
   int width_ = 0;
   int threshold_ = 0;
-
   std::vector<int> input_pixels_;
 };
 

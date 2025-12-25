@@ -1,7 +1,6 @@
 #include "zhurin_i_edge_sobel/seq/include/ops_seq.hpp"
 
 #include <cmath>
-#include <cstddef>
 #include <vector>
 
 #include "zhurin_i_edge_sobel/common/include/common.hpp"
@@ -18,72 +17,51 @@ ZhurinIEdgeSobelSEQ::ZhurinIEdgeSobelSEQ(const InType &in)
   GetInput() = in;
 }
 
-bool ZhurinIEdgeSobelSEQ::ValidationImpl() {
-  return true;
-}
-
 bool ZhurinIEdgeSobelSEQ::PreProcessingImpl() {
-  GetOutput() = std::vector<int>(static_cast<size_t>(height_ * width_), 0);
+  GetOutput().assign(static_cast<size_t>(height_) * width_, 0);
   return true;
 }
 
 bool ZhurinIEdgeSobelSEQ::RunImpl() {
-  const auto &flat_pixels = std::get<0>(GetInput());
-  input_pixels_ = std::vector<int>(flat_pixels);
+  input_pixels_ = std::get<0>(GetInput());
+  auto &output = GetOutput();
 
-  auto &output_pixels = GetOutput();
-
-  for (int row = 0; row < height_; ++row) {
-    for (int col = 0; col < width_; ++col) {
-      int gx = GradientX(col, row);
-      int gy = GradientY(col, row);
-
-      int mag = static_cast<int>(std::sqrt((gx * gx) + (gy * gy) + 0.0));
-      output_pixels[(static_cast<size_t>(row) * width_) + col] = (mag <= threshold_) ? 0 : mag;
+  for (int y = 0; y < height_; ++y) {
+    for (int x = 0; x < width_; ++x) {
+      int gx = GradientX(x, y);
+      int gy = GradientY(x, y);
+      int mag = static_cast<int>(std::sqrt(gx * gx + gy * gy));
+      output[y * width_ + x] = (mag > threshold_) ? mag : 0;
     }
   }
   return true;
 }
 
-bool ZhurinIEdgeSobelSEQ::PostProcessingImpl() {
-  return true;
-}
-
-int ZhurinIEdgeSobelSEQ::GradientX(int x, int y) {
+int ZhurinIEdgeSobelSEQ::GradientX(int x, int y) const {
   int sum = 0;
-
   for (int ky = -1; ky <= 1; ++ky) {
     for (int kx = -1; kx <= 1; ++kx) {
       int nx = x + kx;
       int ny = y + ky;
-
-      int weight = kSobelX[ky + 1][kx + 1];
-
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < height_) {
-        sum += weight * input_pixels_[(static_cast<size_t>(ny) * width_) + nx];
+        sum += input_pixels_[ny * width_ + nx] * kSobelX[ky + 1][kx + 1];
       }
     }
   }
-
   return sum;
 }
 
-int ZhurinIEdgeSobelSEQ::GradientY(int x, int y) {
+int ZhurinIEdgeSobelSEQ::GradientY(int x, int y) const {
   int sum = 0;
-
   for (int ky = -1; ky <= 1; ++ky) {
     for (int kx = -1; kx <= 1; ++kx) {
       int nx = x + kx;
       int ny = y + ky;
-
-      int weight = kSobelY[ky + 1][kx + 1];
-
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < height_) {
-        sum += weight * input_pixels_[(static_cast<size_t>(ny) * width_) + nx];
+        sum += input_pixels_[ny * width_ + nx] * kSobelY[ky + 1][kx + 1];
       }
     }
   }
-
   return sum;
 }
 
