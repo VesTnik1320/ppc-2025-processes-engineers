@@ -31,7 +31,7 @@ class ZhurinIRingTopologyPerfTests : public ppc::util::BaseRunPerfTests<InType, 
 
     input_data_.go_clockwise = true;
 
-    const size_t data_size = 1000000;
+    const size_t data_size = 100000000;
     input_data_.data.resize(data_size);
 
     for (size_t i = 0; i < data_size; ++i) {
