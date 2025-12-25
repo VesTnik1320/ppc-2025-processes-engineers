@@ -30,7 +30,7 @@ bool ZhurinIEdgeSobelSEQ::RunImpl() {
       int gx = GradientX(ix, iy);
       int gy = GradientY(ix, iy);
       int mag = static_cast<int>(std::sqrt((gx * gx) + (gy * gy)));
-      output[iy * width_ + ix] = (mag > threshold_) ? mag : 0;
+      output[(iy * width_) + ix] = (mag > threshold_) ? mag : 0;
     }
   }
   return true;
@@ -43,7 +43,7 @@ int ZhurinIEdgeSobelSEQ::GradientX(int x, int y) const {
       int nx = x + kx;
       int ny = y + ky;
       if (nx >= 0 && nx < width_ && ny >= 0 && ny < height_) {
-        sum += input_pixels_[ny * width_ + nx] * kSobelX[ky + 1][kx + 1];
+        sum += input_pixels_[(ny * width_) + nx] * kSobelX[ky + 1][kx + 1];
       }
     }
   }

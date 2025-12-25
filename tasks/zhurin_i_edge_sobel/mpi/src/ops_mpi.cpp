@@ -105,7 +105,13 @@ void ZhurinIEdgeSobelMPI::DistributeRows() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  int base = 0, rem = 0, real = 0, top = 0, bottom = 0, total = 0;
+  int base = 0;
+  int rem = 0;
+  int real = 0;
+  int top = 0;
+  int bottom = 0;
+  int total = 0;
+
   RowDistributionComputing(rank, size, base, rem, real, top, bottom, total);
 
   std::vector<int> send_counts(static_cast<size_t>(size), 0);
