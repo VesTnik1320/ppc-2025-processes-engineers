@@ -3,8 +3,8 @@
 // #include <mpi.h>
 
 #include <cmath>
-#include <cstddef>
-#include <tuple>
+// #include <cstddef>
+// #include <tuple>
 #include <vector>
 
 #include "task/include/task.hpp"
@@ -37,8 +37,8 @@ class ZhurinIEdgeSobelMPI : public BaseTask {
   void BroadcastParameters();
   void DistributeRows();
   std::vector<int> LocalGradientsComputing();
-  int GradientX(int x, int y) const;
-  int GradientY(int x, int y) const;
+  [[nodiscard]] int GradientX(int x, int y) const;
+  [[nodiscard]] int GradientY(int x, int y) const;
   void GatherResults(const std::vector<int> &local_result);
 
   void RowDistributionComputing(int world_rank, int world_size, int &base_rows, int &remainder, int &real_rows,

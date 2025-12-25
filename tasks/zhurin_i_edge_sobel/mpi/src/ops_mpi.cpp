@@ -3,9 +3,12 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
+#include "zhurin_i_edge_sobel/common/include/common.hpp"
 namespace zhurin_i_edge_sobel {
 
 ZhurinIEdgeSobelMPI::ZhurinIEdgeSobelMPI(const InType &in) {
@@ -44,8 +47,9 @@ bool ZhurinIEdgeSobelMPI::RunImpl() {
 }
 
 void ZhurinIEdgeSobelMPI::BroadcastParameters() {
-  int params[3] = {height_, width_, threshold_};
-  MPI_Bcast(params, 3, MPI_INT, 0, MPI_COMM_WORLD);
+  std::array<int, 3> params{height_, width_, threshold_};
+  MPI_Bcast(params.data(), static_cast<int>(params.size()), MPI_INT, 0, MPI_COMM_WORLD);
+
   height_ = params[0];
   width_ = params[1];
   threshold_ = params[2];
