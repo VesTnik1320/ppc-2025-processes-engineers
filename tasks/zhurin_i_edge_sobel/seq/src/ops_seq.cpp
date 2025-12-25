@@ -9,7 +9,6 @@
 namespace zhurin_i_edge_sobel {
 
 const std::vector<std::vector<int>> kSobelX = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
-
 const std::vector<std::vector<int>> kSobelY = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
 
 ZhurinIEdgeSobelSEQ::ZhurinIEdgeSobelSEQ(const InType &in)
@@ -27,18 +26,18 @@ bool ZhurinIEdgeSobelSEQ::RunImpl() {
   input_pixels_ = std::get<0>(GetInput());
   auto &output = GetOutput();
 
-  for (int y = 0; y < height_; ++y) {
-    for (int x = 0; x < width_; ++x) {
-      int gx = GradientX(x, y);
-      int gy = GradientY(x, y);
-      int mag = static_cast<int>(std::sqrt(gx * gx + gy * gy));
-      output[y * width_ + x] = (mag > threshold_) ? mag : 0;
+  for (int iy = 0; iy < height_; ++iy) {
+    for (int ix = 0; ix < width_; ++ix) {
+      int gx = GradientX(ix, iy);
+      int gy = GradientY(ix, iy);
+      int mag = static_cast<int>(std::sqrt((gx * gx) + (gy * gy)));
+      output[iy * width_ + ix] = (mag > threshold_) ? mag : 0;
     }
   }
   return true;
 }
 
-int ZhurinIEdgeSobelSEQ::GradientX(int x, int y) const {
+[[nodiscard]] int ZhurinIEdgeSobelSEQ::GradientX(int x, int y) const {
   int sum = 0;
   for (int ky = -1; ky <= 1; ++ky) {
     for (int kx = -1; kx <= 1; ++kx) {
@@ -52,7 +51,7 @@ int ZhurinIEdgeSobelSEQ::GradientX(int x, int y) const {
   return sum;
 }
 
-int ZhurinIEdgeSobelSEQ::GradientY(int x, int y) const {
+[[nodiscard]] int ZhurinIEdgeSobelSEQ::GradientY(int x, int y) const {
   int sum = 0;
   for (int ky = -1; ky <= 1; ++ky) {
     for (int kx = -1; kx <= 1; ++kx) {
