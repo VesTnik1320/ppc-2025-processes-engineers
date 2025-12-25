@@ -1,9 +1,10 @@
 #include "zhurin_i_edge_sobel/mpi/include/ops_mpi.hpp"
 
+#include <mpi.h>
+
 #include <algorithm>
 #include <cmath>
 #include <vector>
-#include <mpi.h>
 
 namespace zhurin_i_edge_sobel {
 
